@@ -1,0 +1,10 @@
+version: "3.2"
+services:
+  server:
+    image: "warmans/gamesmaster:latest"
+    volumes:
+      # Remember to chown cache dir on host to nobody:nogroup so container can write to it
+      - ${PWD}/var/crossword:/opt/tvgif/var/crossword
+    environment:
+      DISCORD_TOKEN: changeme
+    restart: unless-stopped

@@ -1,3 +1,5 @@
+/.env
 /.idea
 *.png
 /bin
+*.private

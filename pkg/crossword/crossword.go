@@ -24,12 +24,28 @@ const EMPTY_CHAR = ' '
 const EMPTY_INDEX = 0
 
 type Cell struct {
-	Char  rune
-	Index int
-	Value rune
+	Char    rune
+	Index   int
+	Value   rune
+	WordIdx []int
 }
 
 type Grid [][]Cell
+
+func (g Grid) String() string {
+	result := ""
+	for x := 0; x < len(g); x++ {
+		for y := 0; y < len(g[x]); y++ {
+			if g[x][y].Char == EMPTY_CHAR {
+				result = result + "."
+			} else {
+				result = result + string(g[x][y].Char)
+			}
+		}
+		result = result + "\n"
+	}
+	return result
+}
 
 type Word struct {
 	Word string
@@ -53,9 +69,9 @@ type ActiveWord struct {
 
 func (w ActiveWord) String() string {
 	// vertical seems to mean horizontal
-	direction := "D"
+	direction := "A"
 	if w.Vertical {
-		direction = "A"
+		direction = "D"
 	}
 	return fmt.Sprintf("%d%s", w.Number, direction)
 }
@@ -70,20 +86,14 @@ func (c *Crossword) String() string {
 	for _, v := range c.WordList {
 		result += fmt.Sprintf("%s %d, %t\n", v.Word, v.X, v.Vertical)
 	}
-	gridHeight := len(c.Grid[0])
-	for y := 0; y < gridHeight; y++ {
-		for x := 0; x < len(c.Grid[y]); x++ {
-			if c.Grid[x][y].Char == EMPTY_CHAR {
-				result = result + "."
-			} else {
-				result = result + string(c.Grid[x][y].Char)
-			}
-		}
-		result = result + "\n"
-	}
+	result += c.Grid.String()
+
 	return result
 }
 
+// Render
+// todo: here is something seriously messed up with the coordinates used by the crossword grid.
+// I think they're reversed so the rendering needs to reverse X and Y.
 func (c *Crossword) Render(width, height int) (*gg.Context, error) {
 
 	cellWidth := float64(width / len(c.Grid))
@@ -96,48 +106,44 @@ func (c *Crossword) Render(width, height int) (*gg.Context, error) {
 	for gridX := 0; gridX < len(c.Grid); gridX++ {
 		for gridY, cell := range c.Grid[gridX] {
 
-			dc.DrawRectangle(float64(gridX)*cellWidth, float64(gridY)*cellHeight, cellWidth, cellHeight)
+			dc.DrawRectangle(float64(gridY)*cellHeight, float64(gridX)*cellWidth, cellWidth, cellHeight)
 
 			if cell.Char != EMPTY_CHAR {
-
 				var words []ActiveWord
-				for k, v := range c.WordList {
-					var intersectWord bool
-					if v.Vertical {
-						intersectWord = (gridY >= v.Y && gridY < v.Y+len(v.Word.Word)) && gridX == v.X
-					} else {
-						intersectWord = (gridX >= v.X && gridX < v.X+len(v.Word.Word)) && gridY == v.Y
-					}
-					if intersectWord {
-						words = append(words, c.WordList[k])
-					}
-					fmt.Printf("%dx%d -> %s | %s %v %dx%d | %v\n", gridX, gridY, string(cell.Char), v.Word.Word, v.Vertical, v.X, v.Y, intersectWord)
+				for _, v := range cell.WordIdx {
+					words = append(words, c.WordList[v])
 				}
 
 				dc.SetRGB(1, 1, 1)
 				dc.FillPreserve()
 
-				dc.SetRGB(0, 0, 0)
-
+				dc.SetRGB(1, 0, 0)
+				var solved bool = false
 				if words != nil {
 					dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 10}))
 					for k, w := range words {
 						if w.X == gridX && w.Y == gridY {
 							// draw the word start identifier
-							dc.DrawString(w.String(), float64(gridX)*cellWidth+2+(14*float64(k)), float64(gridY)*cellHeight+12)
+							dc.DrawString(w.String(), float64(gridY)*cellHeight+2+(14*float64(k)), float64(gridX)*cellWidth+12)
+						}
+						if w.Solved {
+							solved = true
 						}
 					}
-					dc.Stroke()
 				}
 
-				dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 24}))
-				dc.DrawStringAnchored(
-					fmt.Sprintf("%s", strings.ToUpper(string(cell.Char))),
-					float64(gridX)*cellWidth+cellHeight/2,
-					float64(gridY)*cellHeight+cellWidth/2,
-					0.5,
-					0.5,
-				)
+				dc.SetRGB(0, 0, 0)
+				if solved {
+					dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 24}))
+					dc.DrawStringAnchored(
+						strings.ToUpper(string(cell.Char)),
+						float64(gridY)*cellHeight+cellWidth/2,
+						float64(gridX)*cellWidth+cellHeight/2,
+						0.5,
+						0.5,
+					)
+				}
+
 				dc.SetLineWidth(0.3)
 				dc.Stroke()
 			} else {
@@ -152,8 +158,7 @@ func (c *Crossword) Render(width, height int) (*gg.Context, error) {
 }
 
 func NewGenerator(cols, rows int, words Words) *Generator {
-	var grid Grid
-	grid = make([][]Cell, rows)
+	grid := make([][]Cell, rows)
 	for x := 0; x < rows; x++ {
 		grid[x] = make([]Cell, cols)
 		for y := 0; y < cols; y++ {
@@ -161,6 +166,7 @@ func NewGenerator(cols, rows int, words Words) *Generator {
 				EMPTY_CHAR,
 				EMPTY_INDEX,
 				EMPTY_CHAR,
+				nil,
 			}
 		}
 	}
@@ -239,6 +245,8 @@ func (c *Generator) placeWord(w Word, x, y int, vertical bool) bool { //places a
 		if l+x < c.rows {
 			for i := 0; i < l; i++ {
 				c.grid[x+i][y].Char = word[i]
+				c.grid[x+i][y].WordIdx = append(c.grid[x+i][y].WordIdx, len(c.activeWordList))
+
 			}
 			wordPlaced = true
 		}
@@ -246,6 +254,7 @@ func (c *Generator) placeWord(w Word, x, y int, vertical bool) bool { //places a
 		if l+y < c.cols {
 			for i := 0; i < l; i++ {
 				c.grid[x][y+i].Char = word[i]
+				c.grid[x][y+i].WordIdx = append(c.grid[x][y+i].WordIdx, len(c.activeWordList))
 			}
 			wordPlaced = true
 		}
@@ -261,7 +270,7 @@ func (c *Generator) placeWord(w Word, x, y int, vertical bool) bool { //places a
 			number = c.acrossCount
 		}
 
-		aw := ActiveWord{
+		aw := &ActiveWord{
 			Word:     w,
 			X:        x,
 			Y:        y,
@@ -269,7 +278,7 @@ func (c *Generator) placeWord(w Word, x, y int, vertical bool) bool { //places a
 			Number:   number,
 		}
 
-		c.activeWordList = append(c.activeWordList, aw)
+		c.activeWordList = append(c.activeWordList, *aw)
 	}
 	return wordPlaced
 }

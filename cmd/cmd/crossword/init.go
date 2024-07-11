@@ -68,7 +68,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	}
 
 	flag.StringVarEnv(cmd.Flags(), &gameStateDir, "", "output-dir", "./var/crossword/game", "")
-	flag.StringVarEnv(cmd.Flags(), &wordListPath, "", "word-list", "./var/crossword/wordlist/sample.json", "")
+	flag.StringVarEnv(cmd.Flags(), &wordListPath, "", "word-list", "./var/crossword/wordlist/current.json", "")
 	flag.BoolVarEnv(cmd.Flags(), &preview, "", "preview", true, "dump an image of the complete crossword")
 
 	flag.Parse()

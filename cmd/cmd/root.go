@@ -23,5 +23,6 @@ func Execute(logger *slog.Logger) error {
 	rootCmd.AddCommand(bot.NewBotCommand(logger))
 	rootCmd.AddCommand(crossword.NewInitCommand(logger))
 	rootCmd.AddCommand(crossword.NewRandomWordListCommand(logger))
+	rootCmd.AddCommand(crossword.NewLoadCommand(logger))
 	return rootCmd.Execute()
 }

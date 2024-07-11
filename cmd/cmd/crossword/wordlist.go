@@ -45,7 +45,7 @@ func NewRandomWordListCommand(logger *slog.Logger) *cobra.Command {
 		},
 	}
 
-	flag.StringVarEnv(cmd.Flags(), &wordListPath, "", "word-list", "./var/crossword/wordlist/sample.json", "")
+	flag.StringVarEnv(cmd.Flags(), &wordListPath, "", "word-list", "./var/crossword/wordlist/current.json", "")
 	flag.Int64VarEnv(cmd.Flags(), &wordListLength, "", "length", 20, "")
 
 	flag.Parse()
