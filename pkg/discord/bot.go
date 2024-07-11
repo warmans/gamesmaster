@@ -206,7 +206,9 @@ func (b *Bot) openCrosswordForWriting(cb func(cw *crossword.Crossword) *crosswor
 
 	cw = cb(cw)
 
-	return json.NewEncoder(f).Encode(cw)
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	return enc.Encode(cw)
 }
 
 func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate) error {

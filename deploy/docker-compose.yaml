@@ -4,7 +4,7 @@ services:
     image: "warmans/gamesmaster:latest"
     volumes:
       # Remember to chown cache dir on host to nobody:nogroup so container can write to it
-      - ${PWD}/var/crossword:/opt/tvgif/var/crossword
+      - ${PWD}/gamesmaster/var/crossword:/opt/gamesmaster/var/crossword
     environment:
       DISCORD_TOKEN: changeme
     restart: unless-stopped
