@@ -368,11 +368,11 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: fmt.Sprintf(
-						"`%s` was solved by %s: %s\n> %s",
+						"\n> %s\n\n`%s` was solved by %s: `%s`\n",
+						clue,
 						id,
 						i.Interaction.Member.DisplayName(),
 						strings.ToUpper(word),
-						clue,
 					),
 					Files: []*discordgo.File{
 						{
