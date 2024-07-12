@@ -261,8 +261,8 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 					Reader:      buff,
 				},
 				{
-					Name:        "clues.md",
-					ContentType: "text/markdown",
+					Name:        "clues.txt",
+					ContentType: "text/plain",
 					Reader:      content,
 				},
 			},
