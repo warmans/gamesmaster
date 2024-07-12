@@ -15,8 +15,6 @@ import (
 
 type Command string
 
-const BotUsername string = "Gamesmaster"
-
 const (
 	RootCommand      Command = "gamesmaster"
 	CrosswordCommand Command = "crossword"
@@ -85,7 +83,6 @@ func (b *Bot) Start() error {
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
 			// exact match
-			fmt.Println(i.Type, i.ApplicationCommandData().Name)
 			if h, ok := b.commandHandlers[i.ApplicationCommandData().Name]; ok {
 				h(s, i)
 			}
@@ -238,13 +235,13 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
-	fmt.Fprintf(content, "UNSOLVED\n")
+	fmt.Fprintf(content, "# UNSOLVED\n")
 	for _, w := range solved {
-		fmt.Fprintf(content, "[%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+		fmt.Fprintf(content, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
 	}
-	fmt.Fprintf(content, "\nSOLVED\n")
+	fmt.Fprintf(content, "\n# SOLVED\n")
 	for _, w := range unsolved {
-		fmt.Fprintf(content, "[%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+		fmt.Fprintf(content, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
 	}
 
 	buff := &bytes.Buffer{}
@@ -264,8 +261,8 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 					Reader:      buff,
 				},
 				{
-					Name:        "clues.txt",
-					ContentType: "text/plain",
+					Name:        "clues.md",
+					ContentType: "text/markdown",
 					Reader:      content,
 				},
 			},
@@ -331,6 +328,7 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 
 	alreadySolved := false
 	correct := false
+	clue := ""
 	err := b.openCrosswordForWriting(func(cw *crossword.Crossword) *crossword.Crossword {
 		for k, w := range cw.WordList {
 			if w.String() != strings.ToUpper(id) {
@@ -341,9 +339,9 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 				break
 			}
 			if strings.TrimSpace(strings.ToUpper(word)) == strings.ToUpper(w.Word.Word) {
-
 				correct = true
 				solved := cw.WordList[k]
+				clue = cw.WordList[k].Word.Clue
 				solved.Solved = true
 				cw.WordList[k] = solved
 				break
@@ -358,7 +356,7 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 
 	if correct {
 		err := b.openCrosswordForReading(func(cw *crossword.Crossword) error {
-			canvas, err := cw.Render(1024, 1024)
+			canvas, err := cw.Render(1200, 1200)
 			if err != nil {
 				return err
 			}
@@ -369,7 +367,13 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 			return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: fmt.Sprintf("%s was solved by %s: %s", id, i.Interaction.Member.DisplayName(), word),
+					Content: fmt.Sprintf(
+						"`%s` was solved by %s: %s\n> %s",
+						id,
+						i.Interaction.Member.DisplayName(),
+						strings.ToUpper(word),
+						clue,
+					),
 					Files: []*discordgo.File{
 						{
 							Name:        "crossword.png",

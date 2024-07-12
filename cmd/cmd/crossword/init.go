@@ -12,7 +12,7 @@ import (
 	"log/slog"
 )
 
-const GridSize = 20
+const GridSize = 25
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
@@ -42,8 +42,8 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 
-			cw := crossword.NewGenerator(GridSize, GridSize, words).Generate(0, 2)
-			canvas, err := cw.Render(1024, 1024)
+			cw := crossword.NewGenerator(GridSize, GridSize, words).Generate(5, 4)
+			canvas, err := cw.Render(1200, 1200)
 			if err != nil {
 				return err
 			}
@@ -63,6 +63,8 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 			fmt.Print(cw.String())
+			fmt.Printf("\n Input words: %d\n Placed Words: %d", len(words), len(cw.WordList))
+
 			return enc.Encode(cw)
 		},
 	}

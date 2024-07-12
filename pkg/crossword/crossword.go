@@ -120,11 +120,13 @@ func (c *Crossword) Render(width, height int) (*gg.Context, error) {
 				dc.SetRGB(1, 0, 0)
 				var solved bool = false
 				if words != nil {
-					dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 10}))
-					for k, w := range words {
+					dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 12}))
+					shiftLeft := 0
+					for _, w := range words {
 						if w.X == gridX && w.Y == gridY {
 							// draw the word start identifier
-							dc.DrawString(w.String(), float64(gridY)*cellHeight+2+(14*float64(k)), float64(gridX)*cellWidth+12)
+							dc.DrawString(w.String(), float64(gridY)*cellHeight+2+(14*float64(shiftLeft)), float64(gridX)*cellWidth+12)
+							shiftLeft++
 						}
 						if w.Solved {
 							solved = true
