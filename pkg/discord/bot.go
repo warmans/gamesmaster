@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/warmans/gamesmaster/pkg/crossword"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -223,8 +224,6 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 		return err
 	}
 
-	content := &bytes.Buffer{}
-
 	solved := []crossword.ActiveWord{}
 	unsolved := []crossword.ActiveWord{}
 	for _, w := range cw.WordList {
@@ -235,13 +234,15 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
-	fmt.Fprintf(content, "# UNSOLVED\n")
+	unsolvedClues := &bytes.Buffer{}
+	fmt.Fprintf(unsolvedClues, "### UNSOLVED\n")
 	for _, w := range solved {
-		fmt.Fprintf(content, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+		fmt.Fprintf(unsolvedClues, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
 	}
-	fmt.Fprintf(content, "\n# SOLVED\n")
+	solvedClues := &bytes.Buffer{}
+	fmt.Fprintf(solvedClues, "\n### SOLVED\n")
 	for _, w := range unsolved {
-		fmt.Fprintf(content, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+		fmt.Fprintf(solvedClues, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
 	}
 
 	buff := &bytes.Buffer{}
@@ -249,11 +250,16 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 		return err
 	}
 
+	var messageBody string
+	if unsolvedClues.Len() < 2000 {
+		messageBody = "```\n" + unsolvedClues.String() + "\n```\n\n"
+	}
+
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "",
+			Content: messageBody,
 			Files: []*discordgo.File{
 				{
 					Name:        "crossword.png",
@@ -263,7 +269,7 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 				{
 					Name:        "clues.txt",
 					ContentType: "text/plain",
-					Reader:      content,
+					Reader:      io.MultiReader(solvedClues, unsolvedClues),
 				},
 			},
 			Components: []discordgo.MessageComponent{
