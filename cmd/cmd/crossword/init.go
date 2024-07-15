@@ -6,10 +6,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"github.com/warmans/go-crossword"
+	"log/slog"
 	"os"
 	"path"
-
-	"log/slog"
 )
 
 const GridSize = 25
@@ -63,7 +62,23 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved()))
-			fmt.Printf("\n Input words: %d\n Placed Words: %d", len(words), len(cw.Words))
+			fmt.Printf("\nInput words: %d\nPlaced Words: %d\n", len(words), len(cw.Words))
+
+			if len(words) > len(cw.Words) {
+				fmt.Println("\nUnplaced:")
+				for _, v := range words {
+					found := false
+					for _, vv := range cw.Words {
+						if v.Word == vv.Word.Word {
+							found = true
+							break
+						}
+					}
+					if !found {
+						fmt.Println("- " + v.Word)
+					}
+				}
+			}
 
 			return enc.Encode(cw)
 		},
