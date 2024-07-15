@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/warmans/gamesmaster/pkg/crossword"
 	"github.com/warmans/gamesmaster/pkg/flag"
+	"github.com/warmans/go-crossword"
 	"log/slog"
 	"os"
 )
@@ -25,12 +25,12 @@ func NewLoadCommand(logger *slog.Logger) *cobra.Command {
 			}
 			defer f.Close()
 
-			cw := crossword.Crossword{}
-			if err := json.NewDecoder(f).Decode(&cw); err != nil {
+			cw := &crossword.Crossword{}
+			if err := json.NewDecoder(f).Decode(cw); err != nil {
 				return err
 			}
 
-			canvas, err := cw.Render(1024, 1024)
+			canvas, err := crossword.RenderPNG(cw, 1024, 1024, crossword.WithAllSolved())
 			if err != nil {
 				return err
 			}
@@ -38,7 +38,7 @@ func NewLoadCommand(logger *slog.Logger) *cobra.Command {
 			if err := canvas.SavePNG("preview.png"); err != nil {
 				return err
 			}
-			fmt.Print(cw.String())
+			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved()))
 			return nil
 		},
 	}

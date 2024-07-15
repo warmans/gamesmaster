@@ -2,14 +2,16 @@ package discord
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
-	"github.com/warmans/gamesmaster/pkg/crossword"
+	"github.com/warmans/go-crossword"
 	"io"
 	"log"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -219,32 +221,47 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 	if err != nil {
 		return err
 	}
-	canvas, err := cw.Render(1024, 1024)
+	canvas, err := crossword.RenderPNG(&cw, 1024, 1024)
 	if err != nil {
 		return err
 	}
 
-	solved := []crossword.ActiveWord{}
-	unsolved := []crossword.ActiveWord{}
-	for _, w := range cw.WordList {
-		if w.Solved {
-			unsolved = append(unsolved, w)
+	slices.SortFunc(cw.Words, func(a, b crossword.Placement) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+
+	solved := []crossword.Placement{}
+	unsolvedDown := []crossword.Placement{}
+	unsolvedAcross := []crossword.Placement{}
+	for _, w := range cw.Words {
+		if !w.Solved {
+			if w.Vertical {
+				unsolvedDown = append(unsolvedDown, w)
+			} else {
+				unsolvedAcross = append(unsolvedAcross, w)
+			}
 		} else {
 			solved = append(solved, w)
 		}
 	}
 
 	unsolvedClues := &bytes.Buffer{}
-	fmt.Fprintf(unsolvedClues, "### UNSOLVED\n")
-	for _, w := range solved {
-		fmt.Fprintf(unsolvedClues, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+	fmt.Fprintf(unsolvedClues, "DOWN \n")
+	for _, w := range unsolvedDown {
+		fmt.Fprintf(unsolvedClues, "  - [%s | %d letters] %s\n", w.ClueID(), len(w.Word.Word), w.Word.Clue)
 	}
-	solvedClues := &bytes.Buffer{}
-	fmt.Fprintf(solvedClues, "\n### SOLVED\n")
-	for _, w := range unsolved {
-		fmt.Fprintf(solvedClues, "- [%s | %d letters] %s\n", w.String(), len(w.Word.Word), w.Word.Clue)
+	fmt.Fprintf(unsolvedClues, "\nACROSS \n")
+	for _, w := range unsolvedAcross {
+		fmt.Fprintf(unsolvedClues, "  - [%s | %d letters] %s\n", w.ClueID(), len(w.Word.Word), w.Word.Clue)
 	}
 
+	solvedClues := &bytes.Buffer{}
+	if len(solved) > 0 {
+		fmt.Fprintf(solvedClues, "\n## SOLVED\n")
+		for _, w := range solved {
+			fmt.Fprintf(solvedClues, "  - [%s | %d letters] %s\n", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+		}
+	}
 	buff := &bytes.Buffer{}
 	if err := canvas.EncodePNG(buff); err != nil {
 		return err
@@ -269,7 +286,7 @@ func (b *Bot) showCrossword(s *discordgo.Session, i *discordgo.InteractionCreate
 				{
 					Name:        "clues.txt",
 					ContentType: "text/plain",
-					Reader:      io.MultiReader(solvedClues, unsolvedClues),
+					Reader:      io.MultiReader(unsolvedClues, solvedClues),
 				},
 			},
 			Components: []discordgo.MessageComponent{
@@ -336,8 +353,8 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 	correct := false
 	clue := ""
 	err := b.openCrosswordForWriting(func(cw *crossword.Crossword) *crossword.Crossword {
-		for k, w := range cw.WordList {
-			if w.String() != strings.ToUpper(id) {
+		for k, w := range cw.Words {
+			if w.ClueID() != strings.ToUpper(id) {
 				continue
 			}
 			if w.Solved {
@@ -346,10 +363,10 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 			}
 			if strings.TrimSpace(strings.ToUpper(word)) == strings.ToUpper(w.Word.Word) {
 				correct = true
-				solved := cw.WordList[k]
-				clue = cw.WordList[k].Word.Clue
+				solved := cw.Words[k]
+				clue = cw.Words[k].Word.Clue
 				solved.Solved = true
-				cw.WordList[k] = solved
+				cw.Words[k] = solved
 				break
 			}
 		}
@@ -362,7 +379,7 @@ func (b *Bot) handleCheckWordSubmission(s *discordgo.Session, i *discordgo.Inter
 
 	if correct {
 		err := b.openCrosswordForReading(func(cw *crossword.Crossword) error {
-			canvas, err := cw.Render(1200, 1200)
+			canvas, err := crossword.RenderPNG(cw, 1200, 1200)
 			if err != nil {
 				return err
 			}
