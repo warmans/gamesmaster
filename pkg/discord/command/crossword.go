@@ -241,13 +241,17 @@ func (c *Crossword) showCrossword(s *discordgo.Session, i *discordgo.Interaction
 	}
 
 	unsolvedClues := &bytes.Buffer{}
-	fmt.Fprintf(unsolvedClues, "**DOWN**")
-	for _, w := range unsolvedDown {
-		fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+	if len(unsolvedDown) > 0 {
+		fmt.Fprintf(unsolvedClues, "**DOWN**")
+		for _, w := range unsolvedDown {
+			fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+		}
 	}
-	fmt.Fprintf(unsolvedClues, "\n\n**ACROSS**")
-	for _, w := range unsolvedAcross {
-		fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+	if len(unsolvedAcross) > 0 {
+		fmt.Fprintf(unsolvedClues, "\n\n**ACROSS**")
+		for _, w := range unsolvedAcross {
+			fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+		}
 	}
 
 	solvedClues := &bytes.Buffer{}
