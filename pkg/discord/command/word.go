@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/warmans/gamesmaster/pkg/dictionary"
@@ -124,6 +125,9 @@ func (c *Random) randomArtist(s *discordgo.Session, i *discordgo.InteractionCrea
 
 func (c *Random) randomNumber(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	diceSides := i.ApplicationCommandData().Options[0].Options[0].Options[0].IntValue()
+	if diceSides == 0 || diceSides > 1000000 {
+		return errors.New("dice sides must be between 1 and 1,000,000")
+	}
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
