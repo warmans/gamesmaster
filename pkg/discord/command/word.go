@@ -134,11 +134,11 @@ func (c *Random) randomNumber(s *discordgo.Session, i *discordgo.InteractionCrea
 
 func (c *Random) randomHost(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	hosts := []string{
-		":livid: Karl",
-		":lividsteve: Steve",
-		":ricklaugh: Ricky",
-		":ian: Camfield",
-		":sturgess1: Claire",
+		"Karl",
+		"Steve",
+		"Ricky",
+		"Camfield",
+		"Claire",
 	}
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
