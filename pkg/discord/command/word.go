@@ -143,7 +143,7 @@ func (c *Random) randomHost(s *discordgo.Session, i *discordgo.InteractionCreate
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("%s", hosts[rand.IntN(len(hosts)-1)]),
+			Content: hosts[rand.IntN(len(hosts)-1)],
 		},
 	})
 }
