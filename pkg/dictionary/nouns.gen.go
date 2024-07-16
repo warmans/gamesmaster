@@ -1,6 +1,6 @@
 package dictionary
 
-var Words = []string{ 
+var Nouns = []string{ 
 	"Armour",
 	"Barrymore",
 	"Cabot",

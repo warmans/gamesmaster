@@ -1,11 +1,16 @@
-//go:generate sh -c "go run ../../script/dictionary/nouns/nouns.go > nouns.gen.go"
+//go:generate sh -c "go run ../../script/dictionary/wordlist/generate.go nouns.json Nouns > nouns.gen.go"
+//go:generate sh -c "go run ../../script/dictionary/wordlist/generate.go objects.json Objects > objects.gen.go"
 //go:generate sh -c "go run ../../script/dictionary/songs/songs.go > songs.gen.go"
 package dictionary
 
 import "math/rand"
 
 func RandomNoun() string {
-	return Words[rand.Intn(len(Words))-1]
+	return Nouns[rand.Intn(len(Nouns))-1]
+}
+
+func RandomObject() string {
+	return Objects[rand.Intn(len(Objects))-1]
 }
 
 func RandomSong() string {

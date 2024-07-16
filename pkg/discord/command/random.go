@@ -19,6 +19,7 @@ const (
 	wordCommandRandomArtist string = "artist"
 	wordCommandRandomHost   string = "host"
 	wordCommandRandomNumber string = "dice-roll"
+	wordCommandRandomObject string = "object"
 )
 
 func NewRandomCommand() *Random {
@@ -54,7 +55,8 @@ func (c *Random) ModalHandlers() discord.InteractionHandlers {
 
 func (c *Random) CommandHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{
-		wordCommandRandomNoun:   c.randomWord,
+		wordCommandRandomNoun:   c.randomNoun,
+		wordCommandRandomObject: c.randomObject,
 		wordCommandRandomSong:   c.randomSong,
 		wordCommandRandomArtist: c.randomArtist,
 		wordCommandRandomNumber: c.randomNumber,
@@ -67,6 +69,10 @@ func (c *Random) SubCommands() []*discordgo.ApplicationCommandOption {
 		{
 			Name:        wordCommandRandomNoun,
 			Description: "Post a random noun",
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+		}, {
+			Name:        wordCommandRandomObject,
+			Description: "Post a random object",
 			Type:        discordgo.ApplicationCommandOptionSubCommand,
 		}, {
 			Name:        wordCommandRandomSong,
@@ -96,11 +102,20 @@ func (c *Random) SubCommands() []*discordgo.ApplicationCommandOption {
 	}
 }
 
-func (c *Random) randomWord(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *Random) randomNoun(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Word do you think of: **%s**", dictionary.RandomNoun()),
+			Content: fmt.Sprintf("Word do you think of this noun: **%s**", dictionary.RandomNoun()),
+		},
+	})
+}
+
+func (c *Random) randomObject(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Word do you think of this object: **%s**", dictionary.RandomObject()),
 		},
 	})
 }
