@@ -1,5 +1,5 @@
-//go:generate sh -c "go run ../../script/dictionary/nouns.go > nouns.gen.go"
-//go:generate sh -c "go run ../../script/dictionary/songs.go > songs.gen.go"
+//go:generate sh -c "go run ../../script/dictionary/nouns/nouns.go > nouns.gen.go"
+//go:generate sh -c "go run ../../script/dictionary/songs/songs.go > songs.gen.go"
 package dictionary
 
 import "math/rand"
