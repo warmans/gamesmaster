@@ -10,7 +10,7 @@ import (
 	"text/template"
 )
 
-var tmpl = template.Must(template.New("nouns").Parse(`package dictionary
+var nounsTmpl = template.Must(template.New("nouns").Parse(`package dictionary
 
 var Words = []string{ 
 {{range $word := .}}	"{{$word}}",
@@ -36,7 +36,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	if err := tmpl.Execute(os.Stdout, words); err != nil {
+	if err := nounsTmpl.Execute(os.Stdout, words); err != nil {
 		panic("failed to execute template: " + err.Error())
 	}
 
