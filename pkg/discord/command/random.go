@@ -140,13 +140,13 @@ func (c *Random) randomArtist(s *discordgo.Session, i *discordgo.InteractionCrea
 
 func (c *Random) randomNumber(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	diceSides := i.ApplicationCommandData().Options[0].Options[0].Options[0].IntValue()
-	if diceSides == 0 || diceSides > 1000000 {
+	if diceSides < 2 || diceSides > 1000000 {
 		return errors.New("dice sides must be between 1 and 1,000,000")
 	}
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf(":game_die: **%d**", rand.IntN(int(diceSides))),
+			Content: fmt.Sprintf("%s rolled a %d sided die:\n :game_die: **%d**", i.Interaction.Member.DisplayName(), diceSides, rand.IntN(int(diceSides))+1),
 		},
 	})
 }
