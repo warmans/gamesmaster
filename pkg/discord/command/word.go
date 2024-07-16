@@ -5,58 +5,63 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/warmans/gamesmaster/pkg/dictionary"
 	"github.com/warmans/gamesmaster/pkg/discord"
+	"math/rand/v2"
 )
 
 const (
-	wordCommand = "word"
+	randomCommand = "random"
 )
 
 const (
 	wordCommandRandomNoun   string = "noun"
 	wordCommandRandomSong   string = "song"
 	wordCommandRandomArtist string = "artist"
+	wordCommandRandomHost   string = "host"
+	wordCommandRandomNumber string = "dice-roll"
 )
 
-func NewWordCommand() *Word {
-	return &Word{}
+func NewRandomCommand() *Random {
+	return &Random{}
 }
 
-type Word struct {
+type Random struct {
 }
 
-func (c *Word) Prefix() string {
+func (c *Random) Prefix() string {
 	return "wrd"
 }
 
-func (c *Word) RootCommand() string {
-	return wordCommand
+func (c *Random) RootCommand() string {
+	return randomCommand
 }
 
-func (c *Word) Description() string {
+func (c *Random) Description() string {
 	return "Generate words for word games."
 }
 
-func (c *Word) AutoCompleteHandlers() discord.InteractionHandlers {
+func (c *Random) AutoCompleteHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Word) ButtonHandlers() discord.InteractionHandlers {
+func (c *Random) ButtonHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Word) ModalHandlers() discord.InteractionHandlers {
+func (c *Random) ModalHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Word) CommandHandlers() discord.InteractionHandlers {
+func (c *Random) CommandHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{
 		wordCommandRandomNoun:   c.randomWord,
 		wordCommandRandomSong:   c.randomSong,
 		wordCommandRandomArtist: c.randomArtist,
+		wordCommandRandomNumber: c.randomNumber,
+		wordCommandRandomHost:   c.randomHost,
 	}
 }
 
-func (c *Word) SubCommands() []*discordgo.ApplicationCommandOption {
+func (c *Random) SubCommands() []*discordgo.ApplicationCommandOption {
 	return []*discordgo.ApplicationCommandOption{
 		{
 			Name:        wordCommandRandomNoun,
@@ -70,11 +75,27 @@ func (c *Word) SubCommands() []*discordgo.ApplicationCommandOption {
 			Name:        wordCommandRandomArtist,
 			Description: "Post a random artist played on Xfm",
 			Type:        discordgo.ApplicationCommandOptionSubCommand,
+		}, {
+			Name:        wordCommandRandomHost,
+			Description: "Post a random Xfm host",
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+		}, {
+			Name:        wordCommandRandomNumber,
+			Description: "Roll an N-sided dice",
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "sides",
+					Description: "Number will between 0 and N",
+					Required:    true,
+				},
+			},
 		},
 	}
 }
 
-func (c *Word) randomWord(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *Random) randomWord(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -83,7 +104,7 @@ func (c *Word) randomWord(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	})
 }
 
-func (c *Word) randomSong(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *Random) randomSong(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -92,11 +113,37 @@ func (c *Word) randomSong(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	})
 }
 
-func (c *Word) randomArtist(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *Random) randomArtist(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: fmt.Sprintf("Artist: **%s**", dictionary.RandomArtist()),
+		},
+	})
+}
+
+func (c *Random) randomNumber(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	diceSides := i.ApplicationCommandData().Options[0].Options[0].Options[0].IntValue()
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf(":game_die: **%d**", rand.IntN(int(diceSides))),
+		},
+	})
+}
+
+func (c *Random) randomHost(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	hosts := []string{
+		":livid: Karl",
+		":lividsteve: Steve",
+		":ricklaugh: Ricky",
+		":ian: Camfield",
+		":sturgess1: Claire",
+	}
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("%s", hosts[rand.IntN(len(hosts)-1)]),
 		},
 	})
 }
