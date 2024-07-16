@@ -11,3 +11,7 @@ build:
 .PHONY: lint
 lint:
 	./.env/golangci-lint run
+
+.PHONY: generate
+generate:
+	go generate ./...

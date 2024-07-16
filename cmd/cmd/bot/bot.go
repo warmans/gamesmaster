@@ -5,6 +5,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/discord"
+	"github.com/warmans/gamesmaster/pkg/discord/command"
 	"github.com/warmans/gamesmaster/pkg/flag"
 
 	"log"
@@ -35,6 +36,8 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 			bot, err := discord.NewBot(
 				logger,
 				session,
+				command.NewCrosswordCommand(),
+				command.NewWordCommand(),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create bot: %w", err)
