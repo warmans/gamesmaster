@@ -11,7 +11,7 @@ import (
 	"path"
 )
 
-const GridSize = 25
+const GridSize = 30
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
@@ -41,8 +41,8 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 
-			cw := crossword.Generate(GridSize, words, 50)
-			canvas, err := crossword.RenderPNG(cw, 1200, 1200, crossword.WithAllSolved())
+			cw := crossword.Generate(GridSize, words, 50, crossword.WithRevealFirstLetterOfEachWord(true))
+			canvas, err := crossword.RenderPNG(cw, 1200, 1200, crossword.WithAllSolved(false))
 			if err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 					return err
 				}
 			}
-			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved()))
+			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved(false)))
 			fmt.Printf("\nInput words: %d\nPlaced Words: %d\n", len(words), len(cw.Words))
 
 			if len(words) > len(cw.Words) {

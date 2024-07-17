@@ -30,7 +30,7 @@ func NewLoadCommand(logger *slog.Logger) *cobra.Command {
 				return err
 			}
 
-			canvas, err := crossword.RenderPNG(cw, 1024, 1024, crossword.WithAllSolved())
+			canvas, err := crossword.RenderPNG(cw, 1024, 1024, crossword.WithAllSolved(true))
 			if err != nil {
 				return err
 			}
@@ -38,7 +38,7 @@ func NewLoadCommand(logger *slog.Logger) *cobra.Command {
 			if err := canvas.SavePNG("preview.png"); err != nil {
 				return err
 			}
-			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved()))
+			fmt.Print(crossword.RenderText(cw, crossword.WithAllSolved(true)))
 			return nil
 		},
 	}
