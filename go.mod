@@ -7,7 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
-	github.com/warmans/go-crossword v1.2.2
+	github.com/warmans/go-crossword v1.4.0
 )
 
 require (
