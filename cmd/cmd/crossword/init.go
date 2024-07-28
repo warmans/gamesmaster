@@ -41,7 +41,13 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 
-			cw := crossword.Generate(GridSize, words, 50, crossword.WithRevealFirstLetterOfEachWord(true), crossword.WithAllAttempts(true))
+			cw := crossword.Generate(
+				GridSize,
+				words,
+				100,
+				crossword.WithRevealFirstLetterOfEachWord(false),
+				crossword.WithAllAttempts(true),
+			)
 			canvas, err := crossword.RenderPNG(cw, 1200, 1200, crossword.WithAllSolved(false))
 			if err != nil {
 				return err
