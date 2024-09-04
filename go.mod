@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/brianvoe/gofakeit/v7 v7.0.4
 	github.com/bwmarrin/discordgo v0.28.1
+	github.com/davecgh/go-spew v1.1.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/warmans/go-crossword v1.4.0

@@ -8,6 +8,7 @@ import (
 )
 
 type InteractionHandlers map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) error
+type MessageHandlers []func(s *discordgo.Session, m *discordgo.MessageCreate)
 
 type Registerable interface {
 	Prefix() string
@@ -18,6 +19,7 @@ type Registerable interface {
 	ModalHandlers() InteractionHandlers
 	CommandHandlers() InteractionHandlers
 	AutoCompleteHandlers() InteractionHandlers
+	MessageHandlers() MessageHandlers
 }
 
 type Command string
@@ -31,7 +33,7 @@ func NewBot(
 	session *discordgo.Session,
 	commmands ...Registerable,
 ) (*Bot, error) {
-
+	session.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAllWithoutPrivileged | discordgo.IntentMessageContent)
 	bot := &Bot{
 		logger:  logger,
 		session: session,
@@ -70,6 +72,7 @@ func NewBot(
 			}
 			bot.commandHandlers[c.RootCommand()][k] = v
 		}
+		bot.messageHandlers = append(bot.messageHandlers, c.MessageHandlers()...)
 	}
 
 	return bot, nil
@@ -83,6 +86,7 @@ type Bot struct {
 	autoCompleteHandlers InteractionHandlers
 	buttonHandlers       InteractionHandlers
 	modalHandlers        InteractionHandlers
+	messageHandlers      MessageHandlers
 	createdCommands      []*discordgo.ApplicationCommand
 }
 
@@ -133,6 +137,9 @@ func (b *Bot) Start() error {
 			return
 		}
 	})
+	for _, v := range b.messageHandlers {
+		b.session.AddHandler(v)
+	}
 	if err := b.session.Open(); err != nil {
 		return fmt.Errorf("failed to open session: %w", err)
 	}

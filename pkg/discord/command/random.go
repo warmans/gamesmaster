@@ -64,6 +64,10 @@ func (c *Random) CommandHandlers() discord.InteractionHandlers {
 	}
 }
 
+func (c *Random) MessageHandlers() discord.MessageHandlers {
+	return discord.MessageHandlers{}
+}
+
 func (c *Random) SubCommands() []*discordgo.ApplicationCommandOption {
 	return []*discordgo.ApplicationCommandOption{
 		{

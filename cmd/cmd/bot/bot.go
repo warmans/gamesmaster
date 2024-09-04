@@ -38,6 +38,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 				session,
 				command.NewCrosswordCommand(),
 				command.NewRandomCommand(),
+				command.NewFilmgameCommand(),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create bot: %w", err)
