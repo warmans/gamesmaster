@@ -265,7 +265,7 @@ func renderScores(scores map[string]int) string {
 		score    int
 		userName string
 	}) int {
-		if a.score > b.score {
+		if a.score < b.score {
 			return 1
 		}
 		return -1
@@ -273,7 +273,7 @@ func renderScores(scores map[string]int) string {
 
 	sb := &strings.Builder{}
 	for k, v := range scoreSlice {
-		fmt.Fprintf(sb, "#%d %s: %d", k+1, v.userName, v.score)
+		fmt.Fprintf(sb, "%d. %s: %d\n", k+1, v.userName, v.score)
 	}
 	return sb.String()
 }
