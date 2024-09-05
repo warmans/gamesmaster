@@ -91,7 +91,9 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 			if m.ChannelID == c.answerThreadID {
 				clueMatches := posterClueRegex.FindStringSubmatch(m.Content)
 				if clueMatches != nil || len(clueMatches) == 2 {
-					c.handleRequestClue(s, clueMatches[1], m.ChannelID, m.ID)
+					if err := c.handleRequestClue(s, clueMatches[1], m.ChannelID, m.ID); err != nil {
+						fmt.Println("Failed to get clue: ", err.Error())
+					}
 					return
 				}
 				matches := posterGuessRegex.FindStringSubmatch(m.Content)
@@ -106,7 +108,7 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 					m.ID,
 					m.Author.Username,
 				); err != nil {
-					fmt.Println("Failed to check work: ", err.Error())
+					fmt.Println("Failed to check word: ", err.Error())
 					return
 				}
 			}
@@ -132,7 +134,7 @@ func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channe
 				numUnsolved++
 			}
 		}
-		if numUnsolved <= 5 {
+		if numUnsolved > 5 {
 			if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
 				return err
 			}
