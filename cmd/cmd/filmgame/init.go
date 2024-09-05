@@ -13,10 +13,6 @@ import (
 	"strings"
 )
 
-type State struct {
-	Posters []*filmgame.Poster
-}
-
 var dateInParens = regexp.MustCompile(`(\s+)?\([0-9]+\)(\s+)?`)
 var spaces = regexp.MustCompile(`\s+`)
 
@@ -73,12 +69,12 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	return cmd
 }
 
-func createStateFromImages(imagesDir string) (*State, error) {
+func createStateFromImages(imagesDir string) (*filmgame.State, error) {
 	files, err := os.ReadDir(imagesDir)
 	if err != nil {
 		return nil, err
 	}
-	state := &State{Posters: make([]*filmgame.Poster, 0)}
+	state := &filmgame.State{Posters: make([]*filmgame.Poster, 0)}
 	for _, fd := range files {
 		if fd.IsDir() || strings.Contains(fd.Name(), ".blur.") {
 			continue

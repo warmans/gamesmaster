@@ -18,15 +18,6 @@ import (
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
 var posterClueRegex = regexp.MustCompile(`[Cc]lue\s([0-9]+)`)
 
-type FilmgameState struct {
-	GameTitle              string
-	OriginalMessageID      string
-	OriginalMessageChannel string
-	AnswerThreadID         string
-	Posters                []*filmgame.Poster
-	Scores                 map[string]int
-}
-
 const gameDescription = "Guess the film posters by adding a message to the attached thread e.g. `guess 1 fargo`"
 
 const (
@@ -80,7 +71,7 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 	return discord.MessageHandlers{
 		func(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if c.answerThreadID == "" {
-				if err := c.openFilmgameForReading(func(cw *FilmgameState) error {
+				if err := c.openFilmgameForReading(func(cw *filmgame.State) error {
 					c.answerThreadID = cw.AnswerThreadID
 					return nil
 				}); err != nil {
@@ -127,7 +118,7 @@ func (c *Filmgame) SubCommands() []*discordgo.ApplicationCommandOption {
 }
 
 func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channelID string, messageID string) error {
-	return c.openFilmgameForReading(func(cw *FilmgameState) error {
+	return c.openFilmgameForReading(func(cw *filmgame.State) error {
 		numUnsolved := 0
 		for _, v := range cw.Posters {
 			if !v.Guessed {
@@ -164,7 +155,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 ) error {
 	var alreadySolved = false
 	var correct = false
-	if err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
+	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 		for k, v := range cw.Posters {
 			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(word, v.Answer) {
 				if v.Guessed {
@@ -182,7 +173,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 	}
 
 	if correct {
-		err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
+		err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 
 			buff, err := c.renderBoard(cw)
 			if err != nil {
@@ -280,8 +271,8 @@ func renderScores(scores map[string]int) string {
 
 func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
-	var fgs FilmgameState
-	err := c.openFilmgameForReading(func(c *FilmgameState) error {
+	var fgs filmgame.State
+	err := c.openFilmgameForReading(func(c *filmgame.State) error {
 		fgs = *c
 		return nil
 	})
@@ -327,7 +318,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	if err != nil {
 		panic(err)
 	}
-	if err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
+	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
@@ -350,7 +341,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	})
 }
 
-func (c *Filmgame) renderBoard(state *FilmgameState) (*bytes.Buffer, error) {
+func (c *Filmgame) renderBoard(state *filmgame.State) (*bytes.Buffer, error) {
 	buff := &bytes.Buffer{}
 	canvas, err := filmgame.Render("./var/filmgame/game/images", state.Posters)
 	if err != nil {
@@ -362,7 +353,7 @@ func (c *Filmgame) renderBoard(state *FilmgameState) (*bytes.Buffer, error) {
 	return buff, nil
 }
 
-func (c *Filmgame) openFilmgameForReading(cb func(cw *FilmgameState) error) error {
+func (c *Filmgame) openFilmgameForReading(cb func(cw *filmgame.State) error) error {
 	c.gameLock.RLock()
 	defer c.gameLock.RUnlock()
 
@@ -372,7 +363,7 @@ func (c *Filmgame) openFilmgameForReading(cb func(cw *FilmgameState) error) erro
 	}
 	defer f.Close()
 
-	cw := FilmgameState{}
+	cw := filmgame.State{}
 	if err := json.NewDecoder(f).Decode(&cw); err != nil {
 		return err
 	}
@@ -380,7 +371,7 @@ func (c *Filmgame) openFilmgameForReading(cb func(cw *FilmgameState) error) erro
 	return cb(&cw)
 }
 
-func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameState, error)) error {
+func (c *Filmgame) openFilmgameForWriting(cb func(cw *filmgame.State) (*filmgame.State, error)) error {
 	c.gameLock.Lock()
 	defer c.gameLock.Unlock()
 
@@ -390,7 +381,7 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameS
 	}
 	defer f.Close()
 
-	cw := &FilmgameState{}
+	cw := &filmgame.State{}
 	if err := json.NewDecoder(f).Decode(cw); err != nil {
 		return err
 	}

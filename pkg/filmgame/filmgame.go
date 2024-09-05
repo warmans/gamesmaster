@@ -20,6 +20,15 @@ func init() {
 	}
 }
 
+type State struct {
+	GameTitle              string
+	OriginalMessageID      string
+	OriginalMessageChannel string
+	AnswerThreadID         string
+	Posters                []*Poster
+	Scores                 map[string]int
+}
+
 type Poster struct {
 	OriginalImage string
 	ObscuredImage string
