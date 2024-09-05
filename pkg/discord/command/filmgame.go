@@ -403,12 +403,16 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameS
 	if err := f.Truncate(0); err != nil {
 		// allow recovery of file contents from logs
 		fmt.Println("DUMPING STATE...")
-		json.NewEncoder(os.Stderr).Encode(cw)
+		if encerr := json.NewEncoder(os.Stderr).Encode(cw); encerr != nil {
+			fmt.Println("ERROR: ", err.Error())
+		}
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {
 		fmt.Println("DUMPING STATE...")
-		json.NewEncoder(os.Stderr).Encode(cw)
+		if encerr := json.NewEncoder(os.Stderr).Encode(cw); encerr != nil {
+			fmt.Println("ERROR: ", err.Error())
+		}
 		return err
 	}
 
@@ -416,7 +420,9 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameS
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(cw); err != nil {
 		fmt.Println("DUMPING STATE...")
-		json.NewEncoder(os.Stderr).Encode(cw)
+		if encerr := json.NewEncoder(os.Stderr).Encode(cw); encerr != nil {
+			fmt.Println("ERROR: ", err.Error())
+		}
 		return err
 	}
 	return nil
