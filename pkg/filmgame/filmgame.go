@@ -28,7 +28,10 @@ type Poster struct {
 }
 
 func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
-	dc := gg.NewContext(1000, 900)
+	var imageWidth = 200
+	var imageHeight = 300
+
+	dc := gg.NewContext(1000, 1200)
 	dc.SetColor(color.Black)
 	dc.Clear()
 
@@ -46,18 +49,18 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 		if err != nil {
 			return nil, err
 		}
-		dc.DrawImage(im, xPosition*im.Bounds().Dx(), row*im.Bounds().Dy())
+		dc.DrawImage(im, xPosition*imageWidth, row*imageHeight)
 		dc.SetColor(color.Black)
-		dc.DrawRectangle(float64(xPosition*im.Bounds().Dx()), float64(row*im.Bounds().Dy()), 35, 35)
+		dc.DrawRectangle(float64(xPosition*imageWidth), float64(row*imageHeight), 35, 35)
 		dc.Fill()
 
 		dc.SetColor(color.White)
 		dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 20}))
-		dc.DrawString(fmt.Sprintf("%d", k+1), float64(xPosition*im.Bounds().Dx())+10, float64(row*im.Bounds().Dy())+25)
+		dc.DrawString(fmt.Sprintf("%d", k+1), float64(xPosition*imageWidth)+10, float64(row*imageHeight)+25)
 
 		dc.Stroke()
 
-		if xPosition*im.Bounds().Dy() >= 1000 {
+		if (xPosition+1)*imageWidth >= 1000 {
 			row++
 			xPosition = 0
 		} else {
