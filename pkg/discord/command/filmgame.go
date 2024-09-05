@@ -16,6 +16,7 @@ import (
 )
 
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
+var posterClueRegex = regexp.MustCompile(`[Cc]lue\s([0-9]+)`)
 
 type FilmgameState struct {
 	GameTitle              string
@@ -88,6 +89,11 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 				}
 			}
 			if m.ChannelID == c.answerThreadID {
+				clueMatches := posterClueRegex.FindStringSubmatch(m.Content)
+				if clueMatches != nil || len(clueMatches) == 2 {
+					c.handleRequestClue(s, clueMatches[1], m.ChannelID, m.ID)
+					return
+				}
 				matches := posterGuessRegex.FindStringSubmatch(m.Content)
 				if matches == nil || len(matches) != 3 {
 					return
@@ -116,6 +122,34 @@ func (c *Filmgame) SubCommands() []*discordgo.ApplicationCommandOption {
 			Type:        discordgo.ApplicationCommandOptionSubCommand,
 		},
 	}
+}
+
+func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channelID string, messageID string) error {
+	return c.openFilmgameForReading(func(cw *FilmgameState) error {
+		numUnsolved := 0
+		for _, v := range cw.Posters {
+			if !v.Guessed {
+				numUnsolved++
+			}
+		}
+		if numUnsolved <= 5 {
+			if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
+				return err
+			}
+			return nil
+		}
+		for k, v := range cw.Posters {
+			if fmt.Sprintf("%d", k+1) == clueID {
+				if _, err := s.ChannelMessageSend(
+					cw.AnswerThreadID,
+					fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(v.Answer[0]))),
+				); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (c *Filmgame) handleCheckWordSubmission(
@@ -359,19 +393,29 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameS
 		return err
 	}
 
-	if err := f.Truncate(0); err != nil {
-		return err
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-
 	cw, err = cb(cw)
 	if err != nil {
 		return err
 	}
 
+	if err := f.Truncate(0); err != nil {
+		// allow recovery of file contents from logs
+		fmt.Println("DUMPING STATE...")
+		json.NewEncoder(os.Stderr).Encode(cw)
+		return err
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		fmt.Println("DUMPING STATE...")
+		json.NewEncoder(os.Stderr).Encode(cw)
+		return err
+	}
+
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(cw)
+	if err := enc.Encode(cw); err != nil {
+		fmt.Println("DUMPING STATE...")
+		json.NewEncoder(os.Stderr).Encode(cw)
+		return err
+	}
+	return nil
 }
