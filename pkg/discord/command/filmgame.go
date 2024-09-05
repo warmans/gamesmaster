@@ -18,6 +18,7 @@ import (
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
 
 type FilmgameState struct {
+	GameTitle              string
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
@@ -25,7 +26,7 @@ type FilmgameState struct {
 	Scores                 map[string]int
 }
 
-const gameDescription = "Guess the flm posters in the game thread with e.g. `guess 1 fargo`"
+const gameDescription = "Guess the film posters by adding a message to the attached thread e.g. `guess 1 fargo`"
 
 const (
 	filmgameCommand = "filmgame"
@@ -284,7 +285,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	thread, err := s.MessageThreadStartComplex(initialMessage.ChannelID, initialMessage.ID, &discordgo.ThreadStart{
-		Name: "Answers Thread",
+		Name: fmt.Sprintf("%s Answers", fgs.GameTitle),
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
 	if err != nil {
