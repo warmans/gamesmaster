@@ -10,6 +10,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/util"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -21,6 +22,7 @@ type FilmgameState struct {
 	OriginalMessageChannel string
 	AnswerThreadID         string
 	Posters                []*filmgame.Poster
+	Scores                 map[string]int
 }
 
 const gameDescription = "Guess the flm posters in the game thread with e.g. `guess 1 fargo`"
@@ -89,7 +91,14 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 				if matches == nil || len(matches) != 3 {
 					return
 				}
-				if err := c.handleCheckWordSubmission(s, matches[1], matches[2], m.ChannelID, m.ID); err != nil {
+				if err := c.handleCheckWordSubmission(
+					s,
+					matches[1],
+					matches[2],
+					m.ChannelID,
+					m.ID,
+					m.Author.Username,
+				); err != nil {
 					fmt.Println("Failed to check work: ", err.Error())
 					return
 				}
@@ -108,34 +117,39 @@ func (c *Filmgame) SubCommands() []*discordgo.ApplicationCommandOption {
 	}
 }
 
-func (c *Filmgame) handleCheckWordSubmission(s *discordgo.Session, clueID string, word string, channelID string, messageID string) error {
-
+func (c *Filmgame) handleCheckWordSubmission(
+	s *discordgo.Session,
+	clueID string,
+	word string,
+	channelID string,
+	messageID string,
+	userName string,
+) error {
 	var alreadySolved = false
 	var correct = false
-	if err := c.openFilmgameForWriting(func(cw *FilmgameState) *FilmgameState {
+	if err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
 		for k, v := range cw.Posters {
 			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(word, v.Answer) {
 				if v.Guessed {
 					alreadySolved = true
-					return cw
+					return cw, nil
 				}
 				cw.Posters[k].Guessed = true
 				correct = true
-				return cw
+				return cw, nil
 			}
 		}
-		return cw
+		return cw, nil
 	}); err != nil {
 		return err
 	}
 
 	if correct {
-		fmt.Println("Correct!")
-		err := c.openFilmgameForReading(func(cw *FilmgameState) error {
+		err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
 
 			buff, err := c.renderBoard(cw)
 			if err != nil {
-				return err
+				return cw, err
 			}
 
 			_, err = s.ChannelMessageEditComplex(
@@ -154,9 +168,31 @@ func (c *Filmgame) handleCheckWordSubmission(s *discordgo.Session, clueID string
 				},
 			)
 			if err != nil {
-				return err
+				return cw, err
 			}
-			return s.MessageReactionAdd(channelID, messageID, "✅")
+			if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+				return cw, err
+			}
+			if cw.Scores == nil {
+				cw.Scores = make(map[string]int)
+			}
+			if _, exists := cw.Scores[userName]; !exists {
+				cw.Scores[userName] = 1
+			} else {
+				cw.Scores[userName]++
+			}
+			for _, v := range cw.Posters {
+				if !v.Guessed {
+					return cw, nil
+				}
+			}
+			if _, err := s.ChannelMessageSend(
+				cw.AnswerThreadID,
+				fmt.Sprintf("Game complete!\nScores:\n%s", renderScores(cw.Scores)),
+			); err != nil {
+				return cw, err
+			}
+			return cw, nil
 		})
 		if err != nil {
 			return err
@@ -173,6 +209,36 @@ func (c *Filmgame) handleCheckWordSubmission(s *discordgo.Session, clueID string
 		}
 	}
 	return nil
+}
+
+func renderScores(scores map[string]int) string {
+
+	var scoreSlice []struct {
+		score    int
+		userName string
+	}
+	for userName, score := range scores {
+		scoreSlice = append(scoreSlice, struct {
+			score    int
+			userName string
+		}{score: score, userName: userName})
+	}
+
+	slices.SortFunc(scoreSlice, func(a, b struct {
+		score    int
+		userName string
+	}) int {
+		if a.score > b.score {
+			return 1
+		}
+		return -1
+	})
+
+	sb := &strings.Builder{}
+	for k, v := range scoreSlice {
+		fmt.Fprintf(sb, "#%d %s: %d", k+1, v.userName, v.score)
+	}
+	return sb.String()
 }
 
 func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -224,7 +290,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	if err != nil {
 		panic(err)
 	}
-	if err := c.openFilmgameForWriting(func(cw *FilmgameState) *FilmgameState {
+	if err := c.openFilmgameForWriting(func(cw *FilmgameState) (*FilmgameState, error) {
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
@@ -232,7 +298,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 		cw.OriginalMessageChannel = initialMessage.ChannelID
 
 		fmt.Printf("starting game. ThreadID: %s OriginalMessageID: %s OriginalMessageChannel: %s", cw.AnswerThreadID, cw.OriginalMessageID, cw.OriginalMessageChannel)
-		return cw
+		return cw, nil
 	}); err != nil {
 		fmt.Printf("Failed to store answer thread ID: %s\n", err.Error())
 		return err
@@ -277,7 +343,7 @@ func (c *Filmgame) openFilmgameForReading(cb func(cw *FilmgameState) error) erro
 	return cb(&cw)
 }
 
-func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) *FilmgameState) error {
+func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) (*FilmgameState, error)) error {
 	c.gameLock.Lock()
 	defer c.gameLock.Unlock()
 
@@ -299,7 +365,10 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) *FilmgameSt
 		return err
 	}
 
-	cw = cb(cw)
+	cw, err = cb(cw)
+	if err != nil {
+		return err
+	}
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")

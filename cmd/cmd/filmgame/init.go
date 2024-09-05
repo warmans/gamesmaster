@@ -2,17 +2,23 @@ package filmgame
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"log/slog"
 	"os"
 	"path"
+	"regexp"
+	"strings"
 )
 
 type State struct {
 	Posters []*filmgame.Poster
 }
+
+var dateInParens = regexp.MustCompile(`(\s+)?\([0-9]+\)(\s+)?`)
+var spaces = regexp.MustCompile(`\s+`)
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
@@ -25,25 +31,36 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 		Short: "initialise a new filmgame",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			current, err := os.Open(path.Join(gameStateDir, "current.json"))
+			if err := renameImages(imagesDir); err != nil {
+				return fmt.Errorf("failed to rename images: %w", err)
+			}
+
+			state, err := createStateFromImages(imagesDir)
 			if err != nil {
 				return err
 			}
 
-			state := State{}
-			if err := json.NewDecoder(current).Decode(&state); err != nil {
-				return err
-			}
-
+			fmt.Println("Rendering...")
 			canvas, err := filmgame.Render(imagesDir, state.Posters)
 			if err != nil {
 				return err
 			}
-
 			if preview {
-				return canvas.SavePNG("./filmgame.png")
+				if err := canvas.SavePNG("./filmgame.png"); err != nil {
+					return err
+				}
 			}
-			return nil
+
+			currentState, err := os.Create(path.Join(gameStateDir, "current.json"))
+			if err != nil {
+				return err
+			}
+			defer currentState.Close()
+
+			enc := json.NewEncoder(currentState)
+			enc.SetIndent("", "  ")
+
+			return enc.Encode(state)
 		},
 	}
 
@@ -54,4 +71,69 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	flag.Parse()
 
 	return cmd
+}
+
+func createStateFromImages(imagesDir string) (*State, error) {
+	files, err := os.ReadDir(imagesDir)
+	if err != nil {
+		return nil, err
+	}
+	state := &State{Posters: make([]*filmgame.Poster, 0)}
+	for _, fd := range files {
+		if fd.IsDir() || strings.Contains(fd.Name(), ".blur.") {
+			continue
+		}
+		state.Posters = append(state.Posters, &filmgame.Poster{
+			OriginalImage: fd.Name(),
+			ObscuredImage: obscuredImageName(fd.Name()),
+			Answer:        filmNameFromFilename(fd.Name()),
+			Guessed:       false,
+		})
+	}
+
+	return state, nil
+}
+
+func renameImages(imagesDir string) error {
+	files, err := os.ReadDir(imagesDir)
+	if err != nil {
+		return err
+	}
+	for _, fd := range files {
+		if fd.IsDir() {
+			continue
+		}
+		oldPath := path.Join(imagesDir, fd.Name())
+		newPath := path.Join(imagesDir, fixFileName(fd.Name()))
+		fmt.Printf("Moving %s to %s...\n", oldPath, newPath)
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return fmt.Errorf("failed ot rename %s: %w", fd.Name(), err)
+		}
+	}
+	return nil
+}
+
+func fixFileName(oldName string) string {
+	return strings.ToLower(
+		spaces.ReplaceAllString(
+			spaces.ReplaceAllString(dateInParens.ReplaceAllString(oldName, ""), " "),
+			"-",
+		),
+	)
+}
+
+func obscuredImageName(originalName string) string {
+	extension := path.Ext(originalName)
+	return fmt.Sprintf("%s.blur%s", strings.TrimSuffix(originalName, extension), extension)
+}
+
+func filmNameFromFilename(fileName string) string {
+	return strings.ReplaceAll(
+		strings.TrimSuffix(
+			strings.TrimSuffix(fileName, path.Ext(fileName)),
+			".blur",
+		),
+		"-",
+		" ",
+	)
 }

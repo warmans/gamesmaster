@@ -31,7 +31,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 	var imageWidth = 200
 	var imageHeight = 300
 
-	dc := gg.NewContext(1000, 1200)
+	dc := gg.NewContext(1000, 1800)
 	dc.SetColor(color.Black)
 	dc.Clear()
 
