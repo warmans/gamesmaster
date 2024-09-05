@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-var answerRegex = regexp.MustCompile("([A-Za-z][0-9]+)\\s(.+)")
+var answerRegex = regexp.MustCompile(`([A-Za-z][0-9]+)\s(.+)`)
 
 type CrosswordState struct {
 	OriginalMessageID      string
@@ -370,8 +370,4 @@ func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) *Crosswo
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	return enc.Encode(cw)
-}
-
-func (c *Crossword) withPrefix(id string) string {
-	return fmt.Sprintf("%s:%s", c.Prefix(), id)
 }

@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-var posterGuessRegex = regexp.MustCompile("[Gg]uess\\s([0-9]+)\\s(.+)")
+var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
 
 type FilmgameState struct {
 	OriginalMessageID      string
@@ -114,8 +114,8 @@ func (c *Filmgame) handleCheckWordSubmission(s *discordgo.Session, clueID string
 	var correct = false
 	if err := c.openFilmgameForWriting(func(cw *FilmgameState) *FilmgameState {
 		for k, v := range cw.Posters {
-			if fmt.Sprintf("%d", k+1) == clueID && strings.ToLower(word) == strings.ToLower(v.Answer) {
-				if v.Guessed == true {
+			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(word, v.Answer) {
+				if v.Guessed {
 					alreadySolved = true
 					return cw
 				}
@@ -304,8 +304,4 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *FilmgameState) *FilmgameSt
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	return enc.Encode(cw)
-}
-
-func (c *Filmgame) withPrefix(id string) string {
-	return fmt.Sprintf("%s:%s", c.Prefix(), id)
 }
