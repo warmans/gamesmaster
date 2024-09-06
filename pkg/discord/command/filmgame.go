@@ -17,6 +17,7 @@ import (
 
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
 var posterClueRegex = regexp.MustCompile(`[Cc]lue\s([0-9]+)`)
+var adminRegex = regexp.MustCompile(`[Aa]dmin\s(.+)`)
 
 const gameDescription = "Guess the film posters by adding a message to the attached thread e.g. `guess 1 fargo`"
 
@@ -87,6 +88,15 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 					}
 					return
 				}
+				if m.Author.Username == ".warmans" {
+					adminMatches := adminRegex.FindStringSubmatch(m.Content)
+					if adminMatches != nil || len(adminMatches) == 2 {
+						if err := c.handleAdminAction(s, adminMatches[1], m.ChannelID, m.ID); err != nil {
+							fmt.Println("Admin action failed: ", err.Error())
+						}
+						return
+					}
+				}
 				matches := posterGuessRegex.FindStringSubmatch(m.Content)
 				if matches == nil || len(matches) != 3 {
 					return
@@ -145,6 +155,20 @@ func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channe
 	})
 }
 
+func (c *Filmgame) handleAdminAction(s *discordgo.Session, action string, channelID string, messageID string) error {
+	switch action {
+	case "refresh":
+		if err := c.openFilmgameForReading(func(cw *filmgame.State) error {
+			return c.refreshGameImage(s, cw)
+		}); err != nil {
+			return err
+		}
+		return s.MessageReactionAdd(channelID, messageID, "👀")
+	default:
+		return s.MessageReactionAdd(channelID, messageID, "🤷")
+	}
+}
+
 func (c *Filmgame) handleCheckWordSubmission(
 	s *discordgo.Session,
 	clueID string,
@@ -175,29 +199,10 @@ func (c *Filmgame) handleCheckWordSubmission(
 	if correct {
 		err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 
-			buff, err := c.renderBoard(cw)
-			if err != nil {
+			if err := c.refreshGameImage(s, cw); err != nil {
 				return cw, err
 			}
 
-			_, err = s.ChannelMessageEditComplex(
-				&discordgo.MessageEdit{
-					Channel: cw.OriginalMessageChannel,
-					ID:      cw.OriginalMessageID,
-					Content: util.ToPtr(gameDescription),
-					Files: []*discordgo.File{
-						{
-							Name:        "Filmgame.png",
-							ContentType: "images/png",
-							Reader:      buff,
-						},
-					},
-					Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
-				},
-			)
-			if err != nil {
-				return cw, err
-			}
 			if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 				return cw, err
 			}
@@ -237,6 +242,30 @@ func (c *Filmgame) handleCheckWordSubmission(
 		}
 	}
 	return nil
+}
+
+func (c *Filmgame) refreshGameImage(s *discordgo.Session, cw *filmgame.State) error {
+	buff, err := c.renderBoard(cw)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.ChannelMessageEditComplex(
+		&discordgo.MessageEdit{
+			Channel: cw.OriginalMessageChannel,
+			ID:      cw.OriginalMessageID,
+			Content: util.ToPtr(gameDescription),
+			Files: []*discordgo.File{
+				{
+					Name:        "Filmgame.png",
+					ContentType: "images/png",
+					Reader:      buff,
+				},
+			},
+			Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
+		},
+	)
+	return err
 }
 
 func renderScores(scores map[string]int) string {
