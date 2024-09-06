@@ -181,7 +181,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 	var correct = false
 	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 		for k, v := range cw.Posters {
-			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(word, v.Answer) {
+			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
 				if v.Guessed {
 					alreadySolved = true
 					return cw, nil
@@ -446,4 +446,16 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *filmgame.State) (*filmgame
 		return err
 	}
 	return nil
+}
+
+func simplifyGuess(guess string) string {
+	return trimAllPrefix(guess, "a ", "the ")
+}
+
+func trimAllPrefix(str string, trim ...string) string {
+	str = strings.TrimSpace(str)
+	for _, v := range trim {
+		str = strings.TrimSpace(strings.TrimPrefix(str, v))
+	}
+	return str
 }
