@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/discord"
 	"github.com/warmans/gamesmaster/pkg/discord/command"
+	"github.com/warmans/gamesmaster/pkg/discord/command/crossfilm"
 	"github.com/warmans/gamesmaster/pkg/flag"
 
 	"log"
@@ -39,6 +40,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 				command.NewCrosswordCommand(),
 				command.NewRandomCommand(),
 				command.NewFilmgameCommand(logger, session),
+				crossfilm.NewCrossfilmCommand(logger, session),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create bot: %w", err)
