@@ -501,6 +501,9 @@ func (c *Filmgame) completeGame(reason string) error {
 		); err != nil {
 			return cw, err
 		}
+		if err := c.refreshGameImage(c.globalSession, cw); err != nil {
+			return cw, err
+		}
 		return cw, nil
 	})
 }
