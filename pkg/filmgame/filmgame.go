@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"log"
 	"path"
+	"time"
 )
 
 var font *truetype.Font
@@ -27,6 +28,7 @@ type State struct {
 	AnswerThreadID         string
 	Posters                []*Poster
 	Scores                 map[string]int
+	StartedAt              time.Time
 }
 
 type Poster struct {

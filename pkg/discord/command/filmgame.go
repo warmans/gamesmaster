@@ -13,13 +13,14 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 )
 
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
 var posterClueRegex = regexp.MustCompile(`[Cc]lue\s([0-9]+)`)
 var adminRegex = regexp.MustCompile(`[Aa]dmin\s(.+)`)
 
-const gameDescription = "Guess the film posters by adding a message to the attached thread e.g. `guess 1 fargo`"
+const gameDescription = "Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have 24 hours to complete the puzzle."
 
 const (
 	filmgameCommand = "filmgame"
@@ -29,11 +30,18 @@ const (
 	FilmgameCmdStart string = "start"
 )
 
-func NewFilmgameCommand() *Filmgame {
-	return &Filmgame{}
+func NewFilmgameCommand(globalSession *discordgo.Session) *Filmgame {
+	f := &Filmgame{globalSession: globalSession}
+	go func() {
+		if err := f.Start(); err != nil {
+			panic(err)
+		}
+	}()
+	return f
 }
 
 type Filmgame struct {
+	globalSession  *discordgo.Session
 	gameLock       sync.RWMutex
 	answerThreadID string
 }
@@ -197,6 +205,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 	}
 
 	if correct {
+		gameComplete := false
 		err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
 
 			if err := c.refreshGameImage(s, cw); err != nil {
@@ -219,16 +228,14 @@ func (c *Filmgame) handleCheckWordSubmission(
 					return cw, nil
 				}
 			}
-			if _, err := s.ChannelMessageSend(
-				cw.AnswerThreadID,
-				fmt.Sprintf("Game complete!\nScores:\n%s", renderScores(cw.Scores)),
-			); err != nil {
-				return cw, err
-			}
+			gameComplete = true
 			return cw, nil
 		})
 		if err != nil {
 			return err
+		}
+		if gameComplete {
+			return c.completeGame("All items have been solved.")
 		}
 	} else {
 		if alreadySolved {
@@ -351,6 +358,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
+		cw.StartedAt = time.Now()
 		cw.OriginalMessageID = initialMessage.ID
 		cw.OriginalMessageChannel = initialMessage.ChannelID
 
@@ -386,6 +394,7 @@ func (c *Filmgame) openFilmgameForReading(cb func(cw *filmgame.State) error) err
 	c.gameLock.RLock()
 	defer c.gameLock.RUnlock()
 
+	//todo: prefix directory with server ID
 	f, err := os.Open("var/filmgame/game/current.json")
 	if err != nil {
 		return err
@@ -446,6 +455,54 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *filmgame.State) (*filmgame
 		return err
 	}
 	return nil
+}
+
+func (c *Filmgame) Start() error {
+	timer := time.NewTicker(time.Minute)
+	defer timer.Stop()
+	for {
+		select {
+		case <-timer.C:
+			triggerCompletion := false
+			if err := c.openFilmgameForReading(func(cw *filmgame.State) error {
+				if cw.StartedAt.IsZero() {
+					return nil
+				}
+				unguessed := 0
+				for _, v := range cw.Posters {
+					if !v.Guessed {
+						unguessed++
+					}
+				}
+				if time.Since(cw.StartedAt) >= time.Hour*24 && unguessed > 0 {
+					triggerCompletion = true
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if triggerCompletion {
+				if err := c.completeGame("Ran out of time."); err != nil {
+					fmt.Println("Failed to complete game: %s", err.Error())
+				}
+			}
+		}
+	}
+}
+
+func (c *Filmgame) completeGame(reason string) error {
+	return c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
+		for k := range cw.Posters {
+			cw.Posters[k].Guessed = true
+		}
+		if _, err := c.globalSession.ChannelMessageSend(
+			cw.AnswerThreadID,
+			fmt.Sprintf("Game complete!\n%s\n\nScores:\n%s", reason, renderScores(cw.Scores)),
+		); err != nil {
+			return cw, err
+		}
+		return cw, nil
+	})
 }
 
 func simplifyGuess(guess string) string {

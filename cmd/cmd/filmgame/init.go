@@ -7,9 +7,11 @@ import (
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"log/slog"
+	"math/rand"
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -86,6 +88,13 @@ func createStateFromImages(imagesDir string) (*filmgame.State, error) {
 			Guessed:       false,
 		})
 	}
+
+	slices.SortFunc(state.Posters, func(a, b *filmgame.Poster) int {
+		if rand.Float64() < rand.Float64() {
+			return 1
+		}
+		return -1
+	})
 
 	return state, nil
 }
