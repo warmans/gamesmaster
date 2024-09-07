@@ -497,7 +497,7 @@ func (c *Filmgame) completeGame(reason string) error {
 		}
 		if _, err := c.globalSession.ChannelMessageSend(
 			cw.AnswerThreadID,
-			fmt.Sprintf("Game complete!\n%s\n\nScores:\n%s", reason, renderScores(cw.Scores)),
+			fmt.Sprintf("Game completed in %s!\n%s\n\nScores:\n%s", time.Since(cw.StartedAt), reason, renderScores(cw.Scores)),
 		); err != nil {
 			return cw, err
 		}
