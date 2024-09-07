@@ -483,7 +483,7 @@ func (c *Filmgame) Start() error {
 			}
 			if triggerCompletion {
 				if err := c.completeGame("Ran out of time."); err != nil {
-					fmt.Println("Failed to complete game: %s", err.Error())
+					fmt.Printf("Failed to complete game: %s\n", err.Error())
 				}
 			}
 		}
