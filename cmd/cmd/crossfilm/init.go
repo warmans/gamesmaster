@@ -7,6 +7,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/crossfilm"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/flag"
+	"github.com/warmans/gamesmaster/pkg/util"
 	"github.com/warmans/go-crossword"
 	"log/slog"
 	"math/rand"
@@ -41,7 +42,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 			}
 
 			fmt.Println("Rendering...")
-			canvas, err := crossfilm.Render(imagesDir, state.FilmgameState.Posters, state.CrosswordState)
+			canvas, err := crossfilm.Render(imagesDir, *state)
 			if err != nil {
 				return err
 			}
@@ -79,37 +80,46 @@ func createStateFromImages(imagesDir string) (*crossfilm.State, error) {
 		return nil, err
 	}
 	state := &crossfilm.State{
-		FilmgameState: &filmgame.State{Posters: make([]*filmgame.Poster, 0)},
+		FilmgameState: make([]*filmgame.Poster, 0),
 	}
-	words := []crossword.Word{}
+
 	for _, fd := range files {
 		if fd.IsDir() || strings.Contains(fd.Name(), ".blur.") {
 			continue
 		}
 		name := filmNameFromFilename(fd.Name())
-		state.FilmgameState.Posters = append(state.FilmgameState.Posters, &filmgame.Poster{
+		state.FilmgameState = append(state.FilmgameState, &filmgame.Poster{
 			OriginalImage: fd.Name(),
 			ObscuredImage: obscuredImageName(fd.Name()),
 			Answer:        name,
 			Guessed:       false,
 		})
-		words = append(words, crossword.Word{Word: name})
+	}
+	slices.SortFunc(state.FilmgameState, func(a, b *filmgame.Poster) int {
+		if rand.Float64() < rand.Float64() {
+			return 1
+		}
+		return -1
+	})
+
+	// build the word list based on the final sorted poster list
+	var words []crossword.Word
+	for k, v := range state.FilmgameState {
+		words = append(
+			words,
+			crossword.Word{
+				Word:  v.Answer,
+				Label: util.ToPtr(fmt.Sprintf("%d", k+1)),
+			},
+		)
 	}
 
 	state.CrosswordState = crossword.Generate(
 		30,
 		words,
 		100,
-		crossword.WithRevealFirstLetterOfEachWord(false),
 		crossword.WithAllAttempts(true),
 	)
-
-	slices.SortFunc(state.FilmgameState.Posters, func(a, b *filmgame.Poster) int {
-		if rand.Float64() < rand.Float64() {
-			return 1
-		}
-		return -1
-	})
 
 	return state, nil
 }

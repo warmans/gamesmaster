@@ -11,13 +11,12 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
-var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
+var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([ADad0-9]+)\s(.+)`)
 
 const (
 	crossfilmCommand = "crossfilm"
@@ -109,7 +108,6 @@ func (c *Crossfilm) MessageHandlers() discord.MessageHandlers {
 					guessMatches[2],
 					m.ChannelID,
 					m.ID,
-					m.Author.Username,
 				); err != nil {
 					c.logger.Error("Failed to check word", slog.String("err", err.Error()))
 					return
@@ -125,18 +123,17 @@ func (c *Crossfilm) handleCheckWordSubmission(
 	word string,
 	channelID string,
 	messageID string,
-	userName string,
 ) error {
 	var alreadySolved = false
 	var correct = false
 	if err := c.opencrossfilmForWriting(func(cw *crossfilm.State) (*crossfilm.State, error) {
-		for k, v := range cw.FilmgameState.Posters {
-			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
+		for k, v := range cw.FilmgameState {
+			if fmt.Sprintf("%d", k+1) == strings.TrimLeft(clueID, "AD") && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
 				if v.Guessed {
 					alreadySolved = true
 					break
 				}
-				cw.FilmgameState.Posters[k].Guessed = true
+				cw.FilmgameState[k].Guessed = true
 				correct = true
 
 				//update cw state
@@ -144,7 +141,6 @@ func (c *Crossfilm) handleCheckWordSubmission(
 					if strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Word.Word)) {
 						cw.CrosswordState.Words[k].Solved = true
 					}
-					fmt.Println(simplifyGuess(word), simplifyGuess(v.Word.Word), cw.CrosswordState.Words[k].Solved)
 				}
 				return cw, nil
 			}
@@ -155,6 +151,9 @@ func (c *Crossfilm) handleCheckWordSubmission(
 	}
 
 	if correct {
+		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+			return err
+		}
 		gameComplete := false
 		err := c.opencrossfilmForWriting(func(cw *crossfilm.State) (*crossfilm.State, error) {
 
@@ -162,10 +161,7 @@ func (c *Crossfilm) handleCheckWordSubmission(
 				return cw, err
 			}
 
-			if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
-				return cw, err
-			}
-			for _, v := range cw.FilmgameState.Posters {
+			for _, v := range cw.FilmgameState {
 				if !v.Guessed {
 					return cw, nil
 				}
@@ -294,7 +290,7 @@ func (c *Crossfilm) startcrossfilm(s *discordgo.Session, i *discordgo.Interactio
 
 func (c *Crossfilm) renderBoard(state crossfilm.State) (*bytes.Buffer, error) {
 	buff := &bytes.Buffer{}
-	canvas, err := crossfilm.Render("./var/crossfilm/game/images", state.FilmgameState.Posters, state.CrosswordState)
+	canvas, err := crossfilm.Render("./var/crossfilm/game/images", state)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +304,6 @@ func (c *Crossfilm) opencrossfilmForReading(cb func(cw crossfilm.State) error) e
 	c.gameLock.RLock()
 	defer c.gameLock.RUnlock()
 
-	//todo: prefix directory with server ID
 	f, err := os.Open("var/crossfilm/game/current.json")
 	if err != nil {
 		return err
@@ -393,7 +388,7 @@ func (c *Crossfilm) start() error {
 					return nil
 				}
 				unguessed := 0
-				for _, v := range cw.FilmgameState.Posters {
+				for _, v := range cw.FilmgameState {
 					if !v.Guessed {
 						unguessed++
 					}
@@ -416,8 +411,8 @@ func (c *Crossfilm) start() error {
 
 func (c *Crossfilm) forceCompleteGame(reason string) error {
 	return c.opencrossfilmForWriting(func(cw *crossfilm.State) (*crossfilm.State, error) {
-		for k := range cw.FilmgameState.Posters {
-			cw.FilmgameState.Posters[k].Guessed = true
+		for k := range cw.FilmgameState {
+			cw.FilmgameState[k].Guessed = true
 		}
 		for k := range cw.CrosswordState.Words {
 			cw.CrosswordState.Words[k].Solved = true
@@ -452,33 +447,4 @@ func gameDescription(timeLeft time.Duration) string {
 		"Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have %s to complete the puzzle.",
 		timeLeft.Truncate(time.Minute).String(),
 	)
-}
-
-func renderScores(scores map[string]int) string {
-	var scoreSlice []struct {
-		score    int
-		userName string
-	}
-	for userName, score := range scores {
-		scoreSlice = append(scoreSlice, struct {
-			score    int
-			userName string
-		}{score: score, userName: userName})
-	}
-
-	slices.SortFunc(scoreSlice, func(a, b struct {
-		score    int
-		userName string
-	}) int {
-		if a.score < b.score {
-			return 1
-		}
-		return -1
-	})
-
-	sb := &strings.Builder{}
-	for k, v := range scoreSlice {
-		fmt.Fprintf(sb, "%d. %s: %d\n", k+1, v.userName, v.score)
-	}
-	return sb.String()
 }

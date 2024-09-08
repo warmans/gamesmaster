@@ -30,13 +30,13 @@ type State struct {
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
-	FilmgameState          *filmgame.State
+	FilmgameState          []*filmgame.Poster
 	CrosswordState         *crossword.Crossword
 	StartedAt              time.Time
 }
 
-func Render(imagesDir string, posters []*filmgame.Poster, cw *crossword.Crossword) (*gg.Context, error) {
-	posterCtx, err := renderPosters(imagesDir, posters)
+func Render(imagesDir string, state State) (*gg.Context, error) {
+	posterCtx, err := renderPosters(imagesDir, state.FilmgameState)
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +45,7 @@ func Render(imagesDir string, posters []*filmgame.Poster, cw *crossword.Crosswor
 		return nil, err
 	}
 
-	words := []crossword.Word{}
-	for _, v := range posters {
-		words = append(words, crossword.Word{Word: v.Answer})
-	}
-
-	crosswordCtx, err := crossword.RenderPNG(cw, 1000, 1000)
+	crosswordCtx, err := crossword.RenderPNG(state.CrosswordState, 1000, 1000)
 	if err != nil {
 		return nil, err
 	}
