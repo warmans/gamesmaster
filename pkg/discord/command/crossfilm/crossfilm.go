@@ -419,7 +419,7 @@ func (c *Crossfilm) forceCompleteGame(reason string) error {
 		}
 		if _, err := c.globalSession.ChannelMessageSend(
 			cw.AnswerThreadID,
-			fmt.Sprintf("Game completed in %s!\n%s\n", time.Since(cw.StartedAt), reason),
+			fmt.Sprintf("Game completed in %s!\n%s\n", time.Since(cw.StartedAt).Truncate(time.Minute), reason),
 		); err != nil {
 			return cw, err
 		}
