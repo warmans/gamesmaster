@@ -127,8 +127,9 @@ func (c *Crossfilm) handleCheckWordSubmission(
 	var alreadySolved = false
 	var correct = false
 	if err := c.opencrossfilmForWriting(func(cw *crossfilm.State) (*crossfilm.State, error) {
+		wordId := strings.TrimLeft(clueID, "AD")
 		for k, v := range cw.FilmgameState {
-			if fmt.Sprintf("%d", k+1) == strings.TrimLeft(clueID, "AD") && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
+			if fmt.Sprintf("%d", k+1) == wordId && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
 				if v.Guessed {
 					alreadySolved = true
 					break
@@ -138,7 +139,8 @@ func (c *Crossfilm) handleCheckWordSubmission(
 
 				//update cw state
 				for k, v := range cw.CrosswordState.Words {
-					if strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Word.Word)) {
+					// use the label to avoid having to strip spaces from the crossword answers
+					if *v.Word.Label == wordId {
 						cw.CrosswordState.Words[k].Solved = true
 					}
 				}

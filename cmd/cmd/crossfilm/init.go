@@ -121,6 +121,10 @@ func createStateFromImages(imagesDir string) (*crossfilm.State, error) {
 		crossword.WithAllAttempts(true),
 	)
 
+	if len(state.CrosswordState.Words) != len(words) {
+		return nil, fmt.Errorf("not all words were placed: expected %d got %d", len(words), len(state.CrosswordState.Words))
+	}
+
 	return state, nil
 }
 
