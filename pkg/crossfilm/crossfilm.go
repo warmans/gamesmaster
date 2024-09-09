@@ -33,6 +33,7 @@ type State struct {
 	FilmgameState          []*filmgame.Poster
 	CrosswordState         *crossword.Crossword
 	StartedAt              time.Time
+	Scores                 map[string]int
 }
 
 func Render(imagesDir string, state State) (*gg.Context, error) {
