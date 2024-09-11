@@ -166,22 +166,33 @@ func (c *Crossfilm) handleCheckWordSubmission(
 				return cw, err
 			}
 
+			numCompleted := 0
+			for _, v := range cw.FilmgameState {
+				if v.Guessed {
+					numCompleted++
+				}
+			}
+			if numCompleted == len(cw.FilmgameState) {
+				gameComplete = true
+			}
+
+			points := 1
+			if numCompleted > 10 && numCompleted < 20 {
+				points = 2
+			}
+			if numCompleted > 20 {
+				points = 3
+			}
+
 			// increment scores
 			if cw.Scores == nil {
 				cw.Scores = make(map[string]int)
 			}
 			if _, exists := cw.Scores[userName]; !exists {
-				cw.Scores[userName] = 1
+				cw.Scores[userName] = points
 			} else {
-				cw.Scores[userName]++
+				cw.Scores[userName] += points
 			}
-
-			for _, v := range cw.FilmgameState {
-				if !v.Guessed {
-					return cw, nil
-				}
-			}
-			gameComplete = true
 			return cw, nil
 		})
 		if err != nil {
