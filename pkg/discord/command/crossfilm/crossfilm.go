@@ -177,10 +177,10 @@ func (c *Crossfilm) handleCheckWordSubmission(
 			}
 
 			points := 1
-			if numCompleted > 10 && numCompleted < 20 {
+			if numCompleted >= 10 && numCompleted < 20 {
 				points = 2
 			}
-			if numCompleted > 20 {
+			if numCompleted >= 20 {
 				points = 3
 			}
 
