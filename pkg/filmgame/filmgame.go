@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+const BoardWidth = 1400
+const BoardHeight = 1500
+
 var font *truetype.Font
 
 func init() {
@@ -42,7 +45,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 	var imageWidth = 200
 	var imageHeight = 300
 
-	dc := gg.NewContext(1000, 1800)
+	dc := gg.NewContext(BoardWidth, BoardHeight)
 	dc.SetColor(color.Black)
 	dc.Clear()
 
@@ -50,8 +53,11 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 	xPosition := 0
 	for k, v := range posters {
 		var imagePath string
+		labelBackground := color.RGBA{R: 0, G: 0, B: 0, A: 0}
+
 		if v.Guessed {
 			imagePath = path.Join(imagesDir, v.OriginalImage)
+			labelBackground = color.RGBA{R: 0, G: 255, B: 0, A: 255}
 		} else {
 			imagePath = path.Join(imagesDir, v.ObscuredImage)
 		}
@@ -61,7 +67,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 			return nil, err
 		}
 		dc.DrawImage(im, xPosition*imageWidth, row*imageHeight)
-		dc.SetColor(color.Black)
+		dc.SetColor(labelBackground)
 		dc.DrawRectangle(float64(xPosition*imageWidth), float64(row*imageHeight), 35, 35)
 		dc.Fill()
 
@@ -71,7 +77,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 
 		dc.Stroke()
 
-		if (xPosition+1)*imageWidth >= 1000 {
+		if (xPosition+1)*imageWidth >= BoardWidth {
 			row++
 			xPosition = 0
 		} else {

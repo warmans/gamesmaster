@@ -216,7 +216,12 @@ func (c *Filmgame) handleCheckWordSubmission(
 	if correct {
 		gameComplete := false
 		err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
-
+			numCompleted := 0
+			for _, v := range cw.Posters {
+				if v.Guessed {
+					numCompleted++
+				}
+			}
 			if err := c.refreshGameImage(s, *cw); err != nil {
 				return cw, err
 			}
@@ -227,10 +232,17 @@ func (c *Filmgame) handleCheckWordSubmission(
 			if cw.Scores == nil {
 				cw.Scores = make(map[string]int)
 			}
+			points := 1
+			if numCompleted >= 10 && numCompleted < 20 {
+				points = 2
+			}
+			if numCompleted >= 20 {
+				points = 3
+			}
 			if _, exists := cw.Scores[userName]; !exists {
-				cw.Scores[userName] = 1
+				cw.Scores[userName] = points
 			} else {
-				cw.Scores[userName]++
+				cw.Scores[userName] += points
 			}
 			for _, v := range cw.Posters {
 				if !v.Guessed {
