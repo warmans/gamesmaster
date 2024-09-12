@@ -53,11 +53,12 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 	xPosition := 0
 	for k, v := range posters {
 		var imagePath string
-		labelBackground := color.RGBA{R: 0, G: 0, B: 0, A: 0}
-
+		labelBackground := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+		labelForeground := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 		if v.Guessed {
 			imagePath = path.Join(imagesDir, v.OriginalImage)
 			labelBackground = color.RGBA{R: 0, G: 255, B: 0, A: 255}
+			labelForeground = color.RGBA{R: 0, G: 0, B: 0, A: 255}
 		} else {
 			imagePath = path.Join(imagesDir, v.ObscuredImage)
 		}
@@ -71,7 +72,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 		dc.DrawRectangle(float64(xPosition*imageWidth), float64(row*imageHeight), 35, 35)
 		dc.Fill()
 
-		dc.SetColor(color.White)
+		dc.SetColor(labelForeground)
 		dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 20}))
 		dc.DrawString(fmt.Sprintf("%d", k+1), float64(xPosition*imageWidth)+10, float64(row*imageHeight)+25)
 
