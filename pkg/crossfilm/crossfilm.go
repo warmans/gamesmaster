@@ -25,6 +25,11 @@ func init() {
 	}
 }
 
+type Score struct {
+	Points  int
+	Answers int
+}
+
 type State struct {
 	GameTitle              string
 	OriginalMessageID      string
@@ -33,7 +38,7 @@ type State struct {
 	FilmgameState          []*filmgame.Poster
 	CrosswordState         *crossword.Crossword
 	StartedAt              time.Time
-	Scores                 map[string]int
+	Scores                 map[string]*Score
 }
 
 func Render(imagesDir string, state State) (*gg.Context, error) {

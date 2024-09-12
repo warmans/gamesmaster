@@ -186,12 +186,13 @@ func (c *Crossfilm) handleCheckWordSubmission(
 
 			// increment scores
 			if cw.Scores == nil {
-				cw.Scores = make(map[string]int)
+				cw.Scores = make(map[string]*crossfilm.Score)
 			}
 			if _, exists := cw.Scores[userName]; !exists {
-				cw.Scores[userName] = points
+				cw.Scores[userName] = &crossfilm.Score{Points: points, Answers: 1}
 			} else {
-				cw.Scores[userName] += points
+				cw.Scores[userName].Points += points
+				cw.Scores[userName].Answers++
 			}
 			return cw, nil
 		})
@@ -475,23 +476,23 @@ func gameDescription(timeLeft time.Duration) string {
 	)
 }
 
-func renderScores(scores map[string]int) string {
+func renderScores(scores map[string]*crossfilm.Score) string {
 	var scoreSlice []struct {
-		score    int
+		score    *crossfilm.Score
 		userName string
 	}
 	for userName, score := range scores {
 		scoreSlice = append(scoreSlice, struct {
-			score    int
+			score    *crossfilm.Score
 			userName string
 		}{score: score, userName: userName})
 	}
 
 	slices.SortFunc(scoreSlice, func(a, b struct {
-		score    int
+		score    *crossfilm.Score
 		userName string
 	}) int {
-		if a.score < b.score {
+		if a.score.Points < b.score.Points {
 			return 1
 		}
 		return -1
@@ -499,7 +500,7 @@ func renderScores(scores map[string]int) string {
 
 	sb := &strings.Builder{}
 	for k, v := range scoreSlice {
-		fmt.Fprintf(sb, "%d. %s: %d\n", k+1, v.userName, v.score)
+		fmt.Fprintf(sb, "%d. %s: %d (%d answered)\n", k+1, v.userName, v.score.Points, v.score.Answers)
 	}
 	return sb.String()
 }
