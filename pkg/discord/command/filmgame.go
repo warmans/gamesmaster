@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -181,6 +180,8 @@ func (c *Filmgame) handleAdminAction(s *discordgo.Session, action string, channe
 			return err
 		}
 		return s.MessageReactionAdd(channelID, messageID, "👀")
+	case "complete":
+		return c.forceCompleteGame("admin action")
 	default:
 		return s.MessageReactionAdd(channelID, messageID, "🤷")
 	}
@@ -229,21 +230,10 @@ func (c *Filmgame) handleCheckWordSubmission(
 			if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 				return cw, err
 			}
-			if cw.Scores == nil {
-				cw.Scores = make(map[string]int)
-			}
-			points := 1
-			if numCompleted >= 10 && numCompleted < 20 {
-				points = 2
-			}
-			if numCompleted >= 20 {
-				points = 3
-			}
-			if _, exists := cw.Scores[userName]; !exists {
-				cw.Scores[userName] = points
-			} else {
-				cw.Scores[userName] += points
-			}
+
+			// increment scores
+			cw.Scores.Add(userName)
+
 			for _, v := range cw.Posters {
 				if !v.Guessed {
 					return cw, nil
@@ -500,7 +490,7 @@ func (c *Filmgame) forceCompleteGame(reason string) error {
 		}
 		if _, err := c.globalSession.ChannelMessageSend(
 			cw.AnswerThreadID,
-			fmt.Sprintf("Game completed in %s!\n%s\n\nScores:\n%s", time.Since(cw.StartedAt), reason, renderScores(cw.Scores)),
+			fmt.Sprintf("Game completed in %s!\n%s\n\nScores:\n%s", time.Since(cw.StartedAt), reason, cw.Scores.Render()),
 		); err != nil {
 			return cw, err
 		}
@@ -528,33 +518,4 @@ func gameDescription(timeLeft time.Duration) string {
 		"Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have %s to complete the puzzle.",
 		timeLeft.Truncate(time.Minute).String(),
 	)
-}
-
-func renderScores(scores map[string]int) string {
-	var scoreSlice []struct {
-		score    int
-		userName string
-	}
-	for userName, score := range scores {
-		scoreSlice = append(scoreSlice, struct {
-			score    int
-			userName string
-		}{score: score, userName: userName})
-	}
-
-	slices.SortFunc(scoreSlice, func(a, b struct {
-		score    int
-		userName string
-	}) int {
-		if a.score < b.score {
-			return 1
-		}
-		return -1
-	})
-
-	sb := &strings.Builder{}
-	for k, v := range scoreSlice {
-		fmt.Fprintf(sb, "%d. %s: %d\n", k+1, v.userName, v.score)
-	}
-	return sb.String()
 }

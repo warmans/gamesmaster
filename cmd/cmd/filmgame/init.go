@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/flag"
+	"github.com/warmans/gamesmaster/pkg/scores"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -22,18 +23,22 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
 	var gameStateDir string
 	var imagesDir string
+	var gameName string
 	var preview bool
 
 	cmd := &cobra.Command{
 		Use:   "filmgame-init",
 		Short: "initialise a new filmgame",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if gameName == "" {
+				return fmt.Errorf("-name is required")
+			}
 
 			if err := renameImages(imagesDir); err != nil {
 				return fmt.Errorf("failed to rename images: %w", err)
 			}
 
-			state, err := createStateFromImages(imagesDir)
+			state, err := createStateFromImages(imagesDir, gameName)
 			if err != nil {
 				return err
 			}
@@ -65,18 +70,19 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	flag.StringVarEnv(cmd.Flags(), &gameStateDir, "", "output-dir", "./var/filmgame/game", "")
 	flag.StringVarEnv(cmd.Flags(), &imagesDir, "", "images-dir", "./var/filmgame/game/images", "")
 	flag.BoolVarEnv(cmd.Flags(), &preview, "", "preview", true, "dump an image of the complete crossword")
+	flag.StringVarEnv(cmd.Flags(), &gameName, "", "name", "", "name to give the game")
 
 	flag.Parse()
 
 	return cmd
 }
 
-func createStateFromImages(imagesDir string) (*filmgame.State, error) {
+func createStateFromImages(imagesDir string, gameTitle string) (*filmgame.State, error) {
 	files, err := os.ReadDir(imagesDir)
 	if err != nil {
 		return nil, err
 	}
-	state := &filmgame.State{Posters: make([]*filmgame.Poster, 0)}
+	state := &filmgame.State{Posters: make([]*filmgame.Poster, 0), GameTitle: gameTitle}
 	for _, fd := range files {
 		if fd.IsDir() || strings.Contains(fd.Name(), ".blur.") {
 			continue
@@ -88,6 +94,8 @@ func createStateFromImages(imagesDir string) (*filmgame.State, error) {
 			Guessed:       false,
 		})
 	}
+
+	state.Scores = scores.NewTiered(len(state.Posters))
 
 	slices.SortFunc(state.Posters, func(a, b *filmgame.Poster) int {
 		if rand.Float64() < rand.Float64() {

@@ -7,6 +7,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/crossfilm"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/flag"
+	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/gamesmaster/pkg/util"
 	"github.com/warmans/go-crossword"
 	"log/slog"
@@ -95,6 +96,9 @@ func createStateFromImages(imagesDir string) (*crossfilm.State, error) {
 			Guessed:       false,
 		})
 	}
+
+	state.Scores = scores.NewTiered(len(state.FilmgameState))
+
 	slices.SortFunc(state.FilmgameState, func(a, b *filmgame.Poster) int {
 		if rand.Float64() < rand.Float64() {
 			return 1

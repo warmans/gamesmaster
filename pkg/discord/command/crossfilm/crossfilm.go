@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -176,24 +175,9 @@ func (c *Crossfilm) handleCheckWordSubmission(
 				gameComplete = true
 			}
 
-			points := 1
-			if numCompleted >= 10 && numCompleted < 20 {
-				points = 2
-			}
-			if numCompleted >= 20 {
-				points = 3
-			}
-
 			// increment scores
-			if cw.Scores == nil {
-				cw.Scores = make(map[string]*crossfilm.Score)
-			}
-			if _, exists := cw.Scores[userName]; !exists {
-				cw.Scores[userName] = &crossfilm.Score{Points: points, Answers: 1}
-			} else {
-				cw.Scores[userName].Points += points
-				cw.Scores[userName].Answers++
-			}
+			cw.Scores.Add(userName)
+
 			return cw, nil
 		})
 		if err != nil {
@@ -446,7 +430,7 @@ func (c *Crossfilm) forceCompleteGame(reason string) error {
 		}
 		if _, err := c.globalSession.ChannelMessageSend(
 			cw.AnswerThreadID,
-			fmt.Sprintf("Game completed in %s!\n%s\n%s\n", time.Since(cw.StartedAt).Truncate(time.Minute), reason, renderScores(cw.Scores)),
+			fmt.Sprintf("Game completed in %s!\n%s\n%s\n", time.Since(cw.StartedAt).Truncate(time.Minute), reason, cw.Scores.Render()),
 		); err != nil {
 			return cw, err
 		}
@@ -474,33 +458,4 @@ func gameDescription(timeLeft time.Duration) string {
 		"Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have %s to complete the puzzle.",
 		timeLeft.Truncate(time.Minute).String(),
 	)
-}
-
-func renderScores(scores map[string]*crossfilm.Score) string {
-	var scoreSlice []struct {
-		score    *crossfilm.Score
-		userName string
-	}
-	for userName, score := range scores {
-		scoreSlice = append(scoreSlice, struct {
-			score    *crossfilm.Score
-			userName string
-		}{score: score, userName: userName})
-	}
-
-	slices.SortFunc(scoreSlice, func(a, b struct {
-		score    *crossfilm.Score
-		userName string
-	}) int {
-		if a.score.Points < b.score.Points {
-			return 1
-		}
-		return -1
-	})
-
-	sb := &strings.Builder{}
-	for k, v := range scoreSlice {
-		fmt.Fprintf(sb, "%d. %s: %d (%d answered)\n", k+1, v.userName, v.score.Points, v.score.Answers)
-	}
-	return sb.String()
 }

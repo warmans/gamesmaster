@@ -6,6 +6,7 @@ import (
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
+	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/go-crossword"
 	"golang.org/x/image/font/gofont/goregular"
 	"image"
@@ -25,11 +26,6 @@ func init() {
 	}
 }
 
-type Score struct {
-	Points  int
-	Answers int
-}
-
 type State struct {
 	GameTitle              string
 	OriginalMessageID      string
@@ -38,7 +34,7 @@ type State struct {
 	FilmgameState          []*filmgame.Poster
 	CrosswordState         *crossword.Crossword
 	StartedAt              time.Time
-	Scores                 map[string]*Score
+	Scores                 *scores.Tiered
 }
 
 func Render(imagesDir string, state State) (*gg.Context, error) {

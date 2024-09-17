@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
+	"github.com/warmans/gamesmaster/pkg/scores"
 	"golang.org/x/image/font/gofont/goregular"
 	"image/color"
 	"log"
+	"math"
 	"path"
 	"time"
 )
-
-const BoardWidth = 1400
-const BoardHeight = 1500
 
 var font *truetype.Font
 
@@ -30,7 +29,7 @@ type State struct {
 	OriginalMessageChannel string
 	AnswerThreadID         string
 	Posters                []*Poster
-	Scores                 map[string]int
+	Scores                 *scores.Tiered
 	StartedAt              time.Time
 }
 
@@ -44,8 +43,12 @@ type Poster struct {
 func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 	var imageWidth = 200
 	var imageHeight = 300
+	var numImages = len(posters)
+	var imagesPerRow = int(math.Ceil(float64(numImages) / 5))
+	var boardWidth = imagesPerRow * imageWidth
+	var boardHeight = (numImages / imagesPerRow) * imageHeight
 
-	dc := gg.NewContext(BoardWidth, BoardHeight)
+	dc := gg.NewContext(boardWidth, boardHeight)
 	dc.SetColor(color.Black)
 	dc.Clear()
 
@@ -78,7 +81,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 
 		dc.Stroke()
 
-		if (xPosition+1)*imageWidth >= BoardWidth {
+		if (xPosition+1)*imageWidth >= boardWidth {
 			row++
 			xPosition = 0
 		} else {
