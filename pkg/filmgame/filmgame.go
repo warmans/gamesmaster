@@ -41,7 +41,7 @@ type Poster struct {
 }
 
 func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
-	var imageWidth = 200
+	var imageWidth = 300
 	var imageHeight = 300
 	var numImages = len(posters)
 	var imagesPerRow = int(math.Ceil(float64(numImages) / 5))
