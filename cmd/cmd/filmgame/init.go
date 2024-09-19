@@ -24,6 +24,8 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	var gameStateDir string
 	var imagesDir string
 	var gameName string
+	var imageWidth int64
+	var imageHeight int64
 	var preview bool
 
 	cmd := &cobra.Command{
@@ -42,9 +44,13 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			state.Cfg = &filmgame.Config{
+				ImagesWidth:  imageWidth,
+				ImagesHeight: imageHeight,
+			}
 
 			fmt.Println("Rendering...")
-			canvas, err := filmgame.Render(imagesDir, state.Posters)
+			canvas, err := filmgame.Render(imagesDir, state)
 			if err != nil {
 				return err
 			}
@@ -71,6 +77,8 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	flag.StringVarEnv(cmd.Flags(), &imagesDir, "", "images-dir", "./var/filmgame/game/images", "")
 	flag.BoolVarEnv(cmd.Flags(), &preview, "", "preview", true, "dump an image of the complete crossword")
 	flag.StringVarEnv(cmd.Flags(), &gameName, "", "name", "", "name to give the game")
+	flag.Int64VarEnv(cmd.Flags(), &imageWidth, "", "image-width", 200, "image width")
+	flag.Int64VarEnv(cmd.Flags(), &imageHeight, "", "image-height", 300, "image height")
 
 	flag.Parse()
 

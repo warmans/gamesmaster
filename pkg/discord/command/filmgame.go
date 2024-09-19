@@ -363,7 +363,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 
 func (c *Filmgame) renderBoard(state filmgame.State) (*bytes.Buffer, error) {
 	buff := &bytes.Buffer{}
-	canvas, err := filmgame.Render("./var/filmgame/game/images", state.Posters)
+	canvas, err := filmgame.Render("./var/filmgame/game/images", &state)
 	if err != nil {
 		return nil, err
 	}

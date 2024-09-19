@@ -23,8 +23,14 @@ func init() {
 	}
 }
 
+type Config struct {
+	ImagesWidth  int64
+	ImagesHeight int64
+}
+
 type State struct {
 	GameTitle              string
+	Cfg                    *Config
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
@@ -40,10 +46,10 @@ type Poster struct {
 	Guessed       bool
 }
 
-func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
-	var imageWidth = 300
-	var imageHeight = 300
-	var numImages = len(posters)
+func Render(imagesDir string, state *State) (*gg.Context, error) {
+	var imageWidth = int(state.Cfg.ImagesWidth)
+	var imageHeight = int(state.Cfg.ImagesHeight)
+	var numImages = len(state.Posters)
 	var imagesPerRow = int(math.Ceil(float64(numImages) / 5))
 	var boardWidth = imagesPerRow * imageWidth
 	var boardHeight = (numImages / imagesPerRow) * imageHeight
@@ -54,7 +60,7 @@ func Render(imagesDir string, posters []*Poster) (*gg.Context, error) {
 
 	row := 0
 	xPosition := 0
-	for k, v := range posters {
+	for k, v := range state.Posters {
 		var imagePath string
 		labelBackground := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 		labelForeground := color.RGBA{R: 255, G: 255, B: 255, A: 255}
