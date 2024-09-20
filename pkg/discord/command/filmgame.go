@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([0-9]+)\s(.+)`)
@@ -162,13 +163,27 @@ func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channe
 		if fmt.Sprintf("%d", k+1) == clueID {
 			if _, err := s.ChannelMessageSend(
 				cw.AnswerThreadID,
-				fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(v.Answer[0]))),
+				c.getClueText(clueID, v.Answer, time.Since(cw.StartedAt)),
 			); err != nil {
 				return err
 			}
+			return nil
 		}
 	}
 	return nil
+}
+
+func (c *Filmgame) getClueText(clueID string, answer string, gameDuration time.Duration) string {
+	if gameDuration < time.Hour*12 {
+		return fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(answer[0])))
+	}
+	initials := ""
+	for _, w := range strings.Split(answer, " ") {
+		if len(w) > 0 && !unicode.IsNumber(rune(w[0])) {
+			initials += strings.ToUpper(string(w[0]))
+		}
+	}
+	return fmt.Sprintf("%s initials: %s", clueID, initials)
 }
 
 func (c *Filmgame) handleAdminAction(s *discordgo.Session, action string, channelID string, messageID string) error {
