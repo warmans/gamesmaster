@@ -50,7 +50,7 @@ func Render(imagesDir string, state *State) (*gg.Context, error) {
 	var imageWidth = int(state.Cfg.ImagesWidth)
 	var imageHeight = int(state.Cfg.ImagesHeight)
 	var numImages = len(state.Posters)
-	var imagesPerRow = int(math.Ceil(float64(numImages) / 5))
+	var imagesPerRow = int(math.Ceil(float64(numImages) / 4))
 	var boardWidth = imagesPerRow * imageWidth
 	var boardHeight = (numImages / imagesPerRow) * imageHeight
 
