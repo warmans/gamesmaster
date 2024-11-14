@@ -18,6 +18,7 @@ import (
 func NewBotCommand(logger *slog.Logger) *cobra.Command {
 
 	var discordToken string
+	var botName string
 
 	cmd := &cobra.Command{
 		Use:   "bot",
@@ -35,6 +36,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 
 			logger.Info("Starting bot...")
 			bot, err := discord.NewBot(
+				botName,
 				logger,
 				session,
 				command.NewCrosswordCommand(),
@@ -62,6 +64,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 	}
 
 	flag.StringVarEnv(cmd.Flags(), &discordToken, "", "discord-token", "", "discord auth token")
+	flag.StringVarEnv(cmd.Flags(), &botName, "", "bot-name", "gamesmaster", "root command of the bot")
 
 	flag.Parse()
 

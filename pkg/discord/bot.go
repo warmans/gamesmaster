@@ -24,11 +24,8 @@ type Registerable interface {
 
 type Command string
 
-const (
-	RootCommand Command = "gamesmaster"
-)
-
 func NewBot(
+	botName string,
 	logger *slog.Logger,
 	session *discordgo.Session,
 	commmands ...Registerable,
@@ -39,7 +36,7 @@ func NewBot(
 		session: session,
 		commands: []*discordgo.ApplicationCommand{
 			{
-				Name:        string(RootCommand),
+				Name:        botName,
 				Description: "Game selection",
 				Type:        discordgo.ChatApplicationCommand,
 				Options:     make([]*discordgo.ApplicationCommandOption, 0),
