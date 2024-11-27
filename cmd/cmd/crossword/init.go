@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/warmans/gamesmaster/pkg/discord/command"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"github.com/warmans/go-crossword"
 	"log/slog"
@@ -86,7 +87,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 
-			return enc.Encode(cw)
+			return enc.Encode(&command.CrosswordState{Game: cw})
 		},
 	}
 
