@@ -358,14 +358,17 @@ func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) *Crosswo
 		return err
 	}
 
+	cw = cb(cw)
+	if cw == nil {
+		return nil
+	}
+
 	if err := f.Truncate(0); err != nil {
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-
-	cw = cb(cw)
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
