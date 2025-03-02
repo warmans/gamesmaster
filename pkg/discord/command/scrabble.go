@@ -341,7 +341,9 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	// best effort
-	s.MessageReactionAdd(channelID, messageID, "✅")
+	if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+		fmt.Println("failed to add reaction  ", err.Error())
+	}
 
 	if gameComplete {
 		return c.completeGame(guildID)
