@@ -138,16 +138,19 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 
 				// commands are like :skip, :complete
 				if strings.HasPrefix(m.Content, ":") {
-					if err := c.handleTextCommand(s, m.Content, m); err != nil {
+					ok, err := c.handleTextCommand(s, m.Content, m)
+					if err != nil {
 						fmt.Println("Failed to handle command: ", err.Error())
 						if err := s.MessageReactionAdd(m.ChannelID, m.ID, "🔥"); err != nil {
 							fmt.Println("Failed to add reaction: ", err.Error())
 							return
 						}
 					}
-					if err := s.MessageReactionAdd(m.ChannelID, m.ID, "👍"); err != nil {
-						fmt.Println("Failed to add reaction: ", err.Error())
-						return
+					if ok {
+						if err := s.MessageReactionAdd(m.ChannelID, m.ID, "👍"); err != nil {
+							fmt.Println("Failed to add reaction: ", err.Error())
+							return
+						}
 					}
 					return
 				}
@@ -174,7 +177,7 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 	}
 }
 
-func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *discordgo.MessageCreate) error {
+func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *discordgo.MessageCreate) (bool, error) {
 
 	isCurrentPlayer := false
 	err := c.openScrabbleForReading(m.GuildID, func(cw *ScrabbleState) error {
@@ -188,39 +191,39 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 		return nil
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	switch command {
 	case ":refresh":
-		return c.refreshGameImage(s, m.GuildID)
+		return true, c.refreshGameImage(s, m.GuildID)
 	case ":skip":
-		if m.Member.User.Username != "warmans" && !isCurrentPlayer {
-			return fmt.Errorf("not allowed")
+		if m.Member.User.Username == "warmans" || isCurrentPlayer {
+			err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+				cw.Game.NextPlayer()
+				return cw, nil
+			})
+			if err != nil {
+				return false, err
+			}
+			return true, c.refreshGameImage(s, m.GuildID)
 		}
-		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
-			cw.Game.NextPlayer()
-			return cw, nil
-		})
-		if err != nil {
-			return err
-		}
-		return c.refreshGameImage(s, m.GuildID)
+		return false, nil
 	case ":complete":
 		// todo: should probably check for the moderator role
 		if m.Member.User.Username != "warmans" {
-			return nil
+			return false, nil
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
 			cw.Game.Complete = true
 			return cw, nil
 		})
 		if err != nil {
-			return err
+			return false, err
 		}
-		return c.completeGame(m.GuildID)
+		return true, c.completeGame(m.GuildID)
 	}
-	return nil
+	return false, nil
 }
 
 func (c *Scrabble) SubCommands() []*discordgo.ApplicationCommandOption {
