@@ -491,7 +491,7 @@ func (c *Scrabble) createGameIfNoneExists(guildID string, roles discordgo.Roles)
 		RoleIDMap: make(map[string]string),
 	}
 	for _, v := range roles {
-		cw.RoleIDMap[fmt.Sprintf("%s:%s", guildID, v.Name)] = v.ID
+		cw.RoleIDMap[fmt.Sprintf("%s:%s", guildID, strings.ToUpper(v.Name))] = v.ID
 	}
 	if err := json.NewEncoder(f).Encode(cw); err != nil {
 		return err
