@@ -20,7 +20,3 @@ require (
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 )
-
-//replace (
-//	github.com/warmans/go-scrabble v0.0.0-20250302134959-79194b703e84 => "/home/swarman/gomod/github.com/warmans/go-scrabble"
-//)
