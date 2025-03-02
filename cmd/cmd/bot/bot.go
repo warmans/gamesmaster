@@ -19,6 +19,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 
 	var discordToken string
 	var botName string
+	var wordsFilePath string
 
 	cmd := &cobra.Command{
 		Use:   "bot",
@@ -34,6 +35,11 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 				return fmt.Errorf("failed to create discord session: %w", err)
 			}
 
+			scrabble, err := command.NewScrabbleCommand(session, wordsFilePath)
+			if err != nil {
+				return err
+			}
+
 			logger.Info("Starting bot...")
 			bot, err := discord.NewBot(
 				botName,
@@ -43,6 +49,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 				command.NewRandomCommand(),
 				command.NewFilmgameCommand(logger, session),
 				crossfilm.NewCrossfilmCommand(logger, session),
+				scrabble,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create bot: %w", err)
@@ -65,6 +72,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 
 	flag.StringVarEnv(cmd.Flags(), &discordToken, "", "discord-token", "", "discord auth token")
 	flag.StringVarEnv(cmd.Flags(), &botName, "", "bot-name", "gamesmaster", "root command of the bot")
+	flag.StringVarEnv(cmd.Flags(), &wordsFilePath, "", "words-path", "/usr/share/dict/words", "Path to words list of valid dictionary words")
 
 	flag.Parse()
 

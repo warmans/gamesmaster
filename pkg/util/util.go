@@ -97,3 +97,11 @@ func ContentToFilename(rawContent string) string {
 	}
 	return strings.Join(split, "-")
 }
+
+func RunesToStrings(runes []rune) []string {
+	str := make([]string, len(runes))
+	for k, v := range runes {
+		str[k] = string(v)
+	}
+	return str
+}

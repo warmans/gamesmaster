@@ -1,6 +1,6 @@
 module github.com/warmans/gamesmaster
 
-go 1.22.3
+go 1.23.3
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.0.4
@@ -8,9 +8,10 @@ require (
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/warmans/go-crossword v1.4.1
-	golang.org/x/image v0.18.0
+	github.com/warmans/go-scrabble v0.0.1
+	golang.org/x/image v0.24.0
 )
 
 require (
@@ -19,3 +20,7 @@ require (
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 )
+
+//replace (
+//	github.com/warmans/go-scrabble v0.0.0-20250302134959-79194b703e84 => "/home/swarman/gomod/github.com/warmans/go-scrabble"
+//)
