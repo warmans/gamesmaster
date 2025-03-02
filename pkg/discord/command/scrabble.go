@@ -192,9 +192,11 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 	}
 
 	switch command {
+	case ":refresh":
+		return c.refreshGameImage(s, m.GuildID)
 	case ":skip":
 		if m.Member.User.Username != "warmans" && !isCurrentPlayer {
-			return nil
+			return fmt.Errorf("not allowed")
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
 			cw.Game.NextPlayer()
@@ -477,7 +479,7 @@ func (c *Scrabble) createGameIfNoneExists(guildID string, roles discordgo.Roles)
 	// the game
 
 	game := scrabble.NewGame()
-	roleNames := []string{"SAUCER DRINKER", "TEAM GERV", "TEAM SMERCH", "TEAM PILK", "MODS"}
+	roleNames := []string{"SAUCER DRINKER", "TEAM GERV", "TEAM SMERCH", "TEAM PILK"}
 	slices.SortFunc(roleNames, func(a, b string) int {
 		return rand.Int() - rand.Int()
 	})
