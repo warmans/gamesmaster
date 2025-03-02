@@ -26,7 +26,7 @@ __COMMANDS__
 3. [A|D][CELL ID] [WORD] - Place a word A (across) or D (down), starting at [CELL ID]. Note that if you are overlapping an existing word you must specify the whole word including the existing letters on the board.
 
 __NOTES__
-- The '_' character is the blank letter that may stand in for any letter.
+- The '_' character is the blank letter that may stand in for any letter. Just include the letter you want in the word when you submit it and it will remove your _ tile.
 - The game end whens when all players have run out of tiles.
 `
 
@@ -198,7 +198,7 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 	case ":refresh":
 		return true, c.refreshGameImage(s, m.GuildID)
 	case ":skip":
-		if m.Member.User.Username == "warmans" || isCurrentPlayer {
+		if m.Author.Username == ".warmans" || isCurrentPlayer {
 			err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
 				cw.Game.NextPlayer()
 				return cw, nil
@@ -211,7 +211,7 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 		return false, nil
 	case ":complete":
 		// todo: should probably check for the moderator role
-		if m.Member.User.Username != "warmans" {
+		if m.Author.Username != ".warmans" {
 			return false, nil
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
@@ -482,7 +482,7 @@ func (c *Scrabble) createGameIfNoneExists(guildID string, roles discordgo.Roles)
 	// the game
 
 	game := scrabble.NewGame()
-	roleNames := []string{"SAUCER DRINKER", "TEAM GERV", "TEAM SMERCH", "TEAM PILK"}
+	roleNames := []string{"TEAM SMERCH", "TEAM GERV", "TEAM PILK"}
 	slices.SortFunc(roleNames, func(a, b string) int {
 		return rand.Int() - rand.Int()
 	})
@@ -536,16 +536,15 @@ func (c *Scrabble) openScrabbleForWriting(guildID string, cb func(cw *ScrabbleSt
 	if err := json.NewDecoder(f).Decode(cw); err != nil {
 		return err
 	}
+	cw, err = cb(cw)
+	if err != nil || cw == nil {
+		return err
+	}
 
 	if err := f.Truncate(0); err != nil {
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	cw, err = cb(cw)
-	if err != nil {
 		return err
 	}
 
