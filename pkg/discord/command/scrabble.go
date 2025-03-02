@@ -193,7 +193,7 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 
 	switch command {
 	case ":skip":
-		if !isCurrentPlayer {
+		if m.Member.User.Username != "warmans" && !isCurrentPlayer {
 			return nil
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
