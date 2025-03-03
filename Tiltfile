@@ -9,4 +9,5 @@ local_resource(
     ignore=['./bin', './var', ".git"],
     deps='.',
     labels=['Bots'],
+    serve_env={'DEV': 'true'}
 )

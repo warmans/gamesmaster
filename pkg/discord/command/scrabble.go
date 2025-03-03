@@ -9,21 +9,18 @@ import (
 	"github.com/warmans/gamesmaster/pkg/discord"
 	"github.com/warmans/gamesmaster/pkg/util"
 	"github.com/warmans/go-scrabble"
-	"math/rand"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
+	"time"
 )
 
 const scrabbleDescription string = `
-Any member of the role that is currently active can submit a word or skip.
+[todo]
 
 __COMMANDS__
-1. /gamesmaster scrabble letters - show your role's letters
-2. :skip - skip your role's turn 
-3. [A|D][CELL ID] [WORD] - Place a word A (across) or D (down), starting at [CELL ID]. Note that if you are overlapping an existing word you must specify the whole word including the existing letters on the board.
+1. [A|D][CELL ID] [WORD] - Place a word A (across) or D (down), starting at [CELL ID]. Note that if you are overlapping an existing word you must specify the whole word including the existing letters on the board.
 
 __NOTES__
 - The '_' character is the blank letter that may stand in for any letter. Just include the letter you want in the word when you submit it and it will remove your _ tile.
@@ -37,7 +34,7 @@ type ScrabbleState struct {
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
-	Game                   *scrabble.Game
+	Game                   *scrabble.Scrabulous
 	RoleIDMap              map[string]string
 }
 
@@ -55,8 +52,7 @@ const (
 )
 
 const (
-	scrabbleCmdStart   string = "start"
-	scrabbleCmdLetters string = "letters"
+	scrabbleCmdStart string = "start"
 )
 
 func NewScrabbleCommand(globalSession *discordgo.Session, wordsFilePath string) (*Scrabble, error) {
@@ -76,7 +72,9 @@ func NewScrabbleCommand(globalSession *discordgo.Session, wordsFilePath string) 
 			dict[strings.ToUpper(scanner.Text())] = struct{}{}
 		}
 	}
-	return &Scrabble{globalSession: globalSession, dict: dict}, nil
+	sc := &Scrabble{globalSession: globalSession, dict: dict}
+	go sc.runBackgroundTasks()
+	return sc, nil
 }
 
 type Scrabble struct {
@@ -112,8 +110,7 @@ func (c *Scrabble) ModalHandlers() discord.InteractionHandlers {
 
 func (c *Scrabble) CommandHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{
-		scrabbleCmdStart:   c.startScrabble,
-		scrabbleCmdLetters: c.showLetters,
+		scrabbleCmdStart: c.startScrabble,
 	}
 }
 
@@ -126,6 +123,7 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 			complete := false
 			if c.answerThreadID == "" {
 				if err := c.openScrabbleForReading(m.GuildID, func(cw *ScrabbleState) error {
+					fmt.Println("Message for thread: ", cw.AnswerThreadID)
 					c.answerThreadID = cw.AnswerThreadID
 					complete = cw.Game.Complete
 					return nil
@@ -167,7 +165,7 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 					strings.ToUpper(strings.TrimSpace(matches[2])),
 					m.ChannelID,
 					m.ID,
-					m.Member,
+					m.Author,
 				); err != nil {
 					fmt.Println("Failed to check word: ", err.Error())
 					return
@@ -177,38 +175,31 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 	}
 }
 
-func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *discordgo.MessageCreate) (bool, error) {
-
-	isCurrentPlayer := false
-	err := c.openScrabbleForReading(m.GuildID, func(cw *ScrabbleState) error {
-		currentPlayer, err := cw.Game.GetCurrentPlayer()
-		if err != nil {
-			return err
-		}
-		if slices.Contains(m.Member.Roles, cw.roleIDFromName(fmt.Sprintf("%s:%s", m.GuildID, currentPlayer.Name))) {
-			isCurrentPlayer = true
-		}
-		return nil
-	})
+func (c *Scrabble) runBackgroundTasks() {
+	entries, err := os.ReadDir("var/scrabble")
 	if err != nil {
-		return false, err
+		fmt.Printf("Failed to list games: %s\n", err.Error())
 	}
+	for _, v := range entries {
+		if v.IsDir() || !strings.HasSuffix(v.Name(), ".json") {
+			continue
+		}
+		guildID := strings.TrimSuffix(v.Name(), ".json")
+		go c.runBackgroundTask(guildID)
+	}
+}
 
+func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *discordgo.MessageCreate) (bool, error) {
+	fmt.Println("handling text command ", command)
 	switch command {
 	case ":refresh":
-		return true, c.refreshGameImage(s, m.GuildID)
-	case ":skip":
-		if m.Author.Username == ".warmans" || isCurrentPlayer {
-			err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
-				cw.Game.NextPlayer()
-				return cw, nil
-			})
-			if err != nil {
-				return false, err
-			}
-			return true, c.refreshGameImage(s, m.GuildID)
+		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+			return cw, cw.Game.TryPlacePendingWord()
+		})
+		if err != nil {
+			return false, err
 		}
-		return false, nil
+		return true, c.refreshGameImage(s, m.GuildID)
 	case ":complete":
 		// todo: should probably check for the moderator role
 		if m.Author.Username != ".warmans" {
@@ -233,11 +224,6 @@ func (c *Scrabble) SubCommands() []*discordgo.ApplicationCommandOption {
 			Description: "Start the game (if available).",
 			Type:        discordgo.ApplicationCommandOptionSubCommand,
 		},
-		{
-			Name:        scrabbleCmdLetters,
-			Description: "Show your team's letters",
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-		},
 	}
 }
 
@@ -248,7 +234,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 	word string,
 	channelID string,
 	messageID string,
-	member *discordgo.Member,
+	member *discordgo.User,
 ) error {
 
 	placement, err := scrabble.ParsePlacement(placementStr)
@@ -266,52 +252,36 @@ func (c *Scrabble) handleCheckWordSubmission(
 		return nil
 	}
 
-	isCurrentPlayer := false
-	correct := false
+	isAllowedPlayer := true
 	err = c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
-
-		// nothing to do
-		if cw.Game.Complete {
-			return cw, nil
-		}
-
-		currentPlayer, err := cw.Game.GetCurrentPlayer()
-		if err != nil {
-			return nil, err
-		}
-
-		if slices.Contains(member.Roles, cw.roleIDFromName(fmt.Sprintf("%s:%s", guildID, currentPlayer.Name))) {
-			isCurrentPlayer = true
-		}
-		correct = true
+		isAllowedPlayer = cw.Game.IsPlayerAllowed(member.Username)
 		return cw, nil
 	})
 	if err != nil {
 		return err
 	}
 
-	if !isCurrentPlayer {
+	if !isAllowedPlayer && os.Getenv("DEV") != "true" {
 		if err := s.MessageReactionAdd(channelID, messageID, "🙅‍♂️"); err != nil {
-			return err
-		}
-		return nil
-	}
-	if !correct {
-		if err := s.MessageReactionAdd(channelID, messageID, "❌"); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	var gameComplete bool = false
+	var isFirstPendingWord = false
 	err = c.openScrabbleForWriting(guildID, func(sc *ScrabbleState) (*ScrabbleState, error) {
-		if err := sc.Game.PlaceWord(placement, word); err != nil {
+
+		if len(sc.Game.PendingWords) == 0 {
+			isFirstPendingWord = true
+		}
+		if err := sc.Game.CreatePendingWord(placement, word, member.Username); err != nil {
 			if err := s.MessageReactionAdd(channelID, messageID, "❌"); err != nil {
 				return sc, err
 			}
 			return sc, err
 		}
-		canvas, err := scrabble.RenderPNG(sc.Game, 1500, 1000)
+		canvas, err := scrabble.RenderScrabulousPNG(sc.Game, 1500, 1000)
 		if err != nil {
 			return sc, err
 		}
@@ -345,6 +315,10 @@ func (c *Scrabble) handleCheckWordSubmission(
 		return err
 	}
 
+	if isFirstPendingWord {
+		go c.runBackgroundTask(guildID)
+	}
+
 	// best effort
 	if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 		fmt.Println("failed to add reaction  ", err.Error())
@@ -357,43 +331,62 @@ func (c *Scrabble) handleCheckWordSubmission(
 	return nil
 }
 
-func (c *Scrabble) showLetters(s *discordgo.Session, i *discordgo.InteractionCreate) error {
-
-	return c.openScrabbleForReading(i.Interaction.GuildID, func(cw *ScrabbleState) error {
-
-		str := &strings.Builder{}
-		str.WriteString("Your Letters are: \n")
-		for _, v := range i.Member.Roles {
-			for _, p := range cw.Game.Players {
-				if roleID, ok := cw.RoleIDMap[fmt.Sprintf("%s:%s", i.Interaction.GuildID, p.Name)]; ok && roleID == v {
-					str.WriteString(fmt.Sprintf("%s: `%s`\n", p.Name, strings.Join(util.RunesToStrings(p.Letters), ", ")))
-				}
+func (c *Scrabble) runBackgroundTask(guildID string) {
+	for {
+		var stealComplete bool = false
+		var nextRefresh time.Duration
+		fmt.Println("Running background task")
+		if err := c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+			if err := cw.Game.TryPlacePendingWord(); err != nil {
+				return nil, err
 			}
+			if cw.Game.GameState == scrabble.StateStealing {
+				var myNextRefresh time.Duration
+				// overdue
+				if time.Until(*cw.Game.PlaceWordAt) < 0 {
+					myNextRefresh = time.Second
+				} else {
+					// some time in the future
+					if time.Until(*cw.Game.PlaceWordAt) > time.Minute {
+						myNextRefresh = time.Minute
+					} else {
+						myNextRefresh = time.Until(*cw.Game.PlaceWordAt)
+					}
+				}
+				if nextRefresh == 0 || nextRefresh > myNextRefresh {
+					nextRefresh = myNextRefresh
+				}
+			} else {
+				stealComplete = true
+			}
+			return cw, nil
+		}); err != nil {
+			fmt.Println("failed to get game state ", err.Error())
+			continue
 		}
-
-		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: str.String(),
-			},
-		})
-	})
+		if stealComplete {
+			if err := c.refreshGameImage(c.globalSession, guildID); err != nil {
+				fmt.Println("failed to refresh game image ", err.Error())
+			}
+			fmt.Println("Steal complete")
+			return
+		}
+		fmt.Println("Next refresh ", nextRefresh.String())
+		time.Sleep(nextRefresh)
+		if err := c.refreshGameImage(c.globalSession, guildID); err != nil {
+			fmt.Println("failed to refresh game image ", err.Error())
+		}
+	}
 }
 
 func (c *Scrabble) startScrabble(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
-	roles, err := s.GuildRoles(i.Interaction.GuildID)
-	if err != nil {
-		return err
-	}
-
-	if err := c.createGameIfNoneExists(i.GuildID, roles); err != nil {
+	if err := c.createGameIfNoneExists(i.GuildID); err != nil {
 		return err
 	}
 
 	var cw ScrabbleState
-	err = c.openScrabbleForReading(i.GuildID, func(c *ScrabbleState) error {
+	err := c.openScrabbleForReading(i.GuildID, func(c *ScrabbleState) error {
 		cw = *c
 		return nil
 	})
@@ -410,7 +403,7 @@ func (c *Scrabble) startScrabble(s *discordgo.Session, i *discordgo.InteractionC
 			},
 		})
 	}
-	canvas, err := scrabble.RenderPNG(cw.Game, 1500, 1000)
+	canvas, err := scrabble.RenderScrabulousPNG(cw.Game, 1500, 1000)
 	if err != nil {
 		return err
 	}
@@ -464,7 +457,7 @@ func (c *Scrabble) startScrabble(s *discordgo.Session, i *discordgo.InteractionC
 	})
 }
 
-func (c *Scrabble) createGameIfNoneExists(guildID string, roles discordgo.Roles) error {
+func (c *Scrabble) createGameIfNoneExists(guildID string) error {
 
 	_, err := os.Stat(fmt.Sprintf("var/scrabble/%s.json", guildID))
 	if err != nil && !os.IsNotExist(err) {
@@ -478,26 +471,13 @@ func (c *Scrabble) createGameIfNoneExists(guildID string, roles discordgo.Roles)
 		return err
 	}
 
-	// this whole role situation is a bit messed up. Really the user should select roles when creating
-	// the game
-
-	game := scrabble.NewGame()
-	roleNames := []string{"TEAM SMERCH", "TEAM GERV", "TEAM PILK"}
-	slices.SortFunc(roleNames, func(a, b string) int {
-		return rand.Int() - rand.Int()
-	})
-	for _, role := range roleNames {
-		if err := game.AddPlayer(role); err != nil {
-			return err
-		}
-	}
 	cw := ScrabbleState{
-		Game:      game,
+		Game:      scrabble.NewScrabulousGame(time.Minute * 5),
 		RoleIDMap: make(map[string]string),
 	}
-	for _, v := range roles {
-		cw.RoleIDMap[fmt.Sprintf("%s:%s", guildID, strings.ToUpper(v.Name))] = v.ID
-	}
+
+	cw.Game.ResetLetters()
+
 	if err := json.NewEncoder(f).Encode(cw); err != nil {
 		return err
 	}
@@ -554,9 +534,9 @@ func (c *Scrabble) openScrabbleForWriting(guildID string, cb func(cw *ScrabbleSt
 }
 
 func (c *Scrabble) completeGame(guildId string) error {
-	var winner *scrabble.Player
+	var winner *scrabble.Score
 	err := c.openScrabbleForReading(guildId, func(cw *ScrabbleState) error {
-		for _, p := range cw.Game.Players {
+		for _, p := range cw.Game.GetScores() {
 			if winner == nil || p.Score > winner.Score {
 				winner = p
 			}
@@ -567,7 +547,7 @@ func (c *Scrabble) completeGame(guildId string) error {
 		return err
 	}
 
-	return c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.Name))
+	return c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.PlayerName))
 }
 
 func (c *Scrabble) sendThreadMessage(guildId string, message string) error {
@@ -586,7 +566,7 @@ func (c *Scrabble) sendThreadMessage(guildId string, message string) error {
 func (c *Scrabble) refreshGameImage(s *discordgo.Session, guildID string) error {
 	return c.openScrabbleForWriting(guildID, func(sc *ScrabbleState) (*ScrabbleState, error) {
 
-		canvas, err := scrabble.RenderPNG(sc.Game, 1500, 1000)
+		canvas, err := scrabble.RenderScrabulousPNG(sc.Game, 1500, 1000)
 		if err != nil {
 			return sc, err
 		}
