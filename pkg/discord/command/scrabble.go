@@ -17,14 +17,28 @@ import (
 )
 
 const scrabbleDescription string = `
-[todo]
+Scrabulous is a cross between Scrabble and Countdown. While the game is idle anyone (except the last round's' winner, shown
+in red in the score list) can place a word from the shared letters.
+Doing so will start a countdown round where for the next 5 minutes another player can steal the turn by submitting a better 
+word. At the end of the turn, the highest scoring word wins. The game then returns to idle, and new letters are dealt.
 
-__COMMANDS__
-1. [A|D][CELL ID] [WORD] - Place a word A (across) or D (down), starting at [CELL ID]. Note that if you are overlapping an existing word you must specify the whole word including the existing letters on the board.
+The best word during countdown is shown with green letters on the board. The current state is shown at the top right.
+
+Words are placed with a comment in the game thread in the format [A|D][Cell Number] [WORD] e.g. 
+- A1 FOO (1 Across FOO)
+- D133 BAR (133 Down BAR)
+
+You must always specify the full word, even when it overlaps existing letters or uses a blank tile (_). For example
+if you were adding "S" to the existing placement "A1 CAT", you would write "A1 CATS". 
+
+The game ends when all letters have been exhausted.
 
 __NOTES__
-- The '_' character is the blank letter that may stand in for any letter. Just include the letter you want in the word when you submit it and it will remove your _ tile.
-- The game end whens when all players have run out of tiles.
+- The first word must overlap the center tile (113)
+- If you are not allowed to submit a word the bot will react 🙅‍♂️
+- If your word is not a valid placement the bot will react ❌
+- If your word is not a known dictionary word the bot will react 👎
+- If there is an error the bot will react 🔥
 `
 
 var submissionRegex = regexp.MustCompile(`([AD][0-9]+)\s([a-zA-Z]+)`)
@@ -73,7 +87,7 @@ func NewScrabbleCommand(globalSession *discordgo.Session, wordsFilePath string) 
 		}
 	}
 	sc := &Scrabble{globalSession: globalSession, dict: dict}
-	go sc.runBackgroundTasks()
+	go sc.resumeBackgroundTasks()
 	return sc, nil
 }
 
@@ -175,7 +189,7 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 	}
 }
 
-func (c *Scrabble) runBackgroundTasks() {
+func (c *Scrabble) resumeBackgroundTasks() {
 	entries, err := os.ReadDir("var/scrabble")
 	if err != nil {
 		fmt.Printf("Failed to list games: %s\n", err.Error())
