@@ -37,7 +37,8 @@ __NOTES__
 - The first word must overlap the center tile (113)
 - If you are not allowed to submit a word the bot will react 🙅‍♂️
 - If your word is not a valid placement the bot will react ❌
-- If your word is not a known dictionary word the bot will react 👎
+- If your word is not a known dictionary word the bot will react 📖
+- If your word is valid but scored lower than the currently winning word the bot will react 👎 
 - If there is an error the bot will react 🔥
 `
 
@@ -251,7 +252,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	if _, ok := c.dict[word]; !ok {
-		if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
+		if err := s.MessageReactionAdd(channelID, messageID, "📖"); err != nil {
 			return err
 		}
 		return nil
@@ -275,16 +276,23 @@ func (c *Scrabble) handleCheckWordSubmission(
 
 	var gameComplete bool = false
 	var isFirstPendingWord = false
+	var wordWasAccepted = false
+	var wordScore int
 	err = c.openScrabbleForWriting(guildID, func(sc *ScrabbleState) (*ScrabbleState, error) {
 
 		if len(sc.Game.PendingWords) == 0 {
 			isFirstPendingWord = true
 		}
-		if err := sc.Game.CreatePendingWord(placement, word, member.Username); err != nil {
+
+		wordWasAccepted, err = sc.Game.CreatePendingWord(placement, word, member.Username)
+		if err != nil {
 			if err := s.MessageReactionAdd(channelID, messageID, "❌"); err != nil {
 				return sc, err
 			}
 			return sc, err
+		}
+		if wordWasAccepted {
+			wordScore = sc.Game.GetLastPendingWord().Result.Score()
 		}
 		canvas, err := scrabble.RenderScrabulousPNG(sc.Game, 1500, 1000)
 		if err != nil {
@@ -325,8 +333,19 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	// best effort
-	if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
-		fmt.Println("failed to add reaction  ", err.Error())
+	if wordWasAccepted {
+		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+			fmt.Println("failed to add reaction ", err.Error())
+		}
+		for _, v := range numberToEmojis(wordScore) {
+			if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
+				fmt.Println("failed to add reaction ", err.Error())
+			}
+		}
+	} else {
+		if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
+			fmt.Println("failed to add reaction ", err.Error())
+		}
 	}
 
 	if gameComplete {
@@ -601,4 +620,33 @@ func (c *Scrabble) refreshGameImage(s *discordgo.Session, guildID string) error 
 
 		return sc, nil
 	})
+}
+
+func numberToEmojis(number int) []string {
+	out := []string{}
+	for _, v := range fmt.Sprintf("%d", number) {
+		switch v {
+		case '0':
+			out = append(out, "0️⃣")
+		case '1':
+			out = append(out, "1️⃣")
+		case '2':
+			out = append(out, "2️⃣")
+		case '3':
+			out = append(out, "3️⃣")
+		case '4':
+			out = append(out, "4️⃣")
+		case '5':
+			out = append(out, "5️⃣")
+		case '6':
+			out = append(out, "6️⃣")
+		case '7':
+			out = append(out, "7️⃣")
+		case '8':
+			out = append(out, "8️⃣")
+		case '9':
+			out = append(out, "9️⃣")
+		}
+	}
+	return out
 }
