@@ -52,15 +52,6 @@ type ScrabbleState struct {
 	RoleIDMap              map[string]string
 }
 
-func (s *ScrabbleState) roleIDFromName(wantName string) string {
-	for name, id := range s.RoleIDMap {
-		if wantName == name {
-			return id
-		}
-	}
-	return ""
-}
-
 const (
 	scrabbleCommand = "scrabble"
 )
