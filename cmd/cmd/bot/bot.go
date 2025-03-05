@@ -72,7 +72,7 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 
 	flag.StringVarEnv(cmd.Flags(), &discordToken, "", "discord-token", "", "discord auth token")
 	flag.StringVarEnv(cmd.Flags(), &botName, "", "bot-name", "gamesmaster", "root command of the bot")
-	flag.StringVarEnv(cmd.Flags(), &wordsFilePath, "", "words-path", "/usr/share/dict/words", "Path to words list of valid dictionary words")
+	flag.StringVarEnv(cmd.Flags(), &wordsFilePath, "", "words-path", "./etc/sowpods.txt", "Path to words list of valid dictionary words")
 
 	flag.Parse()
 

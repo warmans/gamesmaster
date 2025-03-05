@@ -206,19 +206,48 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 			return false, err
 		}
 		return true, c.refreshGameImage(s, m.GuildID)
-	case ":complete":
-		// todo: should probably check for the moderator role
+	case ":reset":
 		if m.Author.Username != ".warmans" {
 			return false, nil
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
-			cw.Game.Complete = true
+			cw.Game.ResetGame()
 			return cw, nil
 		})
 		if err != nil {
 			return false, err
 		}
+		return true, c.refreshGameImage(s, m.GuildID)
+	case ":complete":
+		// todo: should probably check for the moderator role
+		if m.Author.Username != ".warmans" {
+			return false, nil
+		}
 		return true, c.completeGame(m.GuildID)
+	case ":idle":
+		if m.Author.Username != ".warmans" {
+			return false, nil
+		}
+		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+			cw.Game.PlaceWordAt = util.ToPtr(time.Now())
+			return cw, cw.Game.TryPlacePendingWord()
+		})
+		if err != nil {
+			return false, err
+		}
+		return true, c.refreshGameImage(s, m.GuildID)
+	case ":letters":
+		if m.Author.Username != ".warmans" {
+			return false, nil
+		}
+		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+			cw.Game.ResetLetters()
+			return cw, nil
+		})
+		if err != nil {
+			return false, err
+		}
+		return true, c.refreshGameImage(s, m.GuildID)
 	}
 	return false, nil
 }
@@ -284,43 +313,25 @@ func (c *Scrabble) handleCheckWordSubmission(
 			isFirstPendingWord = true
 		}
 
-		wordWasAccepted, err = sc.Game.CreatePendingWord(placement, word, member.Username)
+		result, err := sc.Game.CreatePendingWord(placement, word, member.Username)
 		if err != nil {
 			if err := s.MessageReactionAdd(channelID, messageID, "❌"); err != nil {
-				return sc, err
+				return nil, err
 			}
-			return sc, err
+			return nil, err
 		}
-		if wordWasAccepted {
-			wordScore = sc.Game.GetLastPendingWord().Result.Score()
-		}
-		canvas, err := scrabble.RenderScrabulousPNG(sc.Game, 1500, 1000)
-		if err != nil {
-			return sc, err
-		}
-		buff := &bytes.Buffer{}
-		if err := canvas.EncodePNG(buff); err != nil {
-			return sc, err
+		if result != nil {
+			for _, v := range result.Touching {
+				if _, ok := c.dict[cellsToString(v)]; !ok {
+					if err := s.MessageReactionAdd(channelID, messageID, "📖"); err != nil {
+						return nil, err
+					}
+				}
+			}
+			wordWasAccepted = true
+			wordScore = result.Score()
 		}
 
-		_, err = s.ChannelMessageEditComplex(
-			&discordgo.MessageEdit{
-				Channel: sc.OriginalMessageChannel,
-				ID:      sc.OriginalMessageID,
-				Content: util.ToPtr(scrabbleDescription),
-				Files: []*discordgo.File{
-					{
-						Name:        "board.png",
-						ContentType: "images/png",
-						Reader:      buff,
-					},
-				},
-				Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
-			},
-		)
-		if err != nil {
-			return sc, err
-		}
 		gameComplete = sc.Game.Complete
 		return sc, nil
 	})
@@ -337,13 +348,16 @@ func (c *Scrabble) handleCheckWordSubmission(
 		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 			fmt.Println("failed to add reaction ", err.Error())
 		}
-		for _, v := range numberToEmojis(wordScore) {
-			if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
-				fmt.Println("failed to add reaction ", err.Error())
-			}
+		if err := c.refreshGameImage(s, guildID); err != nil {
+			fmt.Println("failed refresh game image", err.Error())
 		}
 	} else {
 		if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
+			fmt.Println("failed to add reaction ", err.Error())
+		}
+	}
+	for _, v := range numberToEmojis(wordScore) {
+		if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
 			fmt.Println("failed to add reaction ", err.Error())
 		}
 	}
@@ -357,8 +371,9 @@ func (c *Scrabble) handleCheckWordSubmission(
 
 func (c *Scrabble) runBackgroundTask(guildID string) {
 	for {
-		var stealComplete bool = false
+		var stealComplete = false
 		var nextRefresh time.Duration
+		var gameComplete = false
 		fmt.Println("Running background task")
 		if err := c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
 			if err := cw.Game.TryPlacePendingWord(); err != nil {
@@ -383,6 +398,7 @@ func (c *Scrabble) runBackgroundTask(guildID string) {
 			} else {
 				stealComplete = true
 			}
+			gameComplete = cw.Game.Complete
 			return cw, nil
 		}); err != nil {
 			fmt.Println("failed to get game state ", err.Error())
@@ -394,6 +410,11 @@ func (c *Scrabble) runBackgroundTask(guildID string) {
 			}
 			fmt.Println("Steal complete")
 			return
+		}
+		if gameComplete {
+			if err := c.completeGame(guildID); err != nil {
+				fmt.Println("failed to complete game ", err.Error())
+			}
 		}
 		fmt.Println("Next refresh ", nextRefresh.String())
 		time.Sleep(nextRefresh)
@@ -559,19 +580,30 @@ func (c *Scrabble) openScrabbleForWriting(guildID string, cb func(cw *ScrabbleSt
 
 func (c *Scrabble) completeGame(guildId string) error {
 	var winner *scrabble.Score
-	err := c.openScrabbleForReading(guildId, func(cw *ScrabbleState) error {
+	err := c.openScrabbleForWriting(guildId, func(cw *ScrabbleState) (*ScrabbleState, error) {
+		cw.Game.PlaceWordAt = util.ToPtr(time.Now())
+		if err := cw.Game.TryPlacePendingWord(); err != nil {
+			fmt.Println("failed to place pending word")
+		}
+		cw.Game.Complete = true
 		for _, p := range cw.Game.GetScores() {
 			if winner == nil || p.Score > winner.Score {
 				winner = p
 			}
 		}
-		return nil
+		return cw, nil
 	})
 	if err != nil {
 		return err
 	}
 
-	return c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.PlayerName))
+	if winner != nil {
+		if err := c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.PlayerName)); err != nil {
+			return err
+		}
+	}
+
+	return c.refreshGameImage(c.globalSession, guildId)
 }
 
 func (c *Scrabble) sendThreadMessage(guildId string, message string) error {
@@ -649,4 +681,12 @@ func numberToEmojis(number int) []string {
 		}
 	}
 	return out
+}
+
+func cellsToString(cells []scrabble.Cell) string {
+	chars := make([]rune, len(cells), len(cells))
+	for k, v := range cells {
+		chars[k] = v.Char
+	}
+	return string(chars)
 }

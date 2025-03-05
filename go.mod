@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6
 	github.com/warmans/go-crossword v1.4.1
-	github.com/warmans/go-scrabble v1.0.4
+	github.com/warmans/go-scrabble v1.2.0
 	golang.org/x/image v0.24.0
 )
 
