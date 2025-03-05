@@ -684,7 +684,7 @@ func numberToEmojis(number int) []string {
 }
 
 func cellsToString(cells []scrabble.Cell) string {
-	chars := make([]rune, len(cells), len(cells))
+	chars := make([]rune, len(cells))
 	for k, v := range cells {
 		chars[k] = v.Char
 	}
