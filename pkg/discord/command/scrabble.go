@@ -348,6 +348,11 @@ func (c *Scrabble) handleCheckWordSubmission(
 		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 			fmt.Println("failed to add reaction ", err.Error())
 		}
+		for _, v := range numberToEmojis(wordScore) {
+			if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
+				fmt.Println("failed to add reaction ", err.Error())
+			}
+		}
 		if err := c.refreshGameImage(s, guildID); err != nil {
 			fmt.Println("failed refresh game image", err.Error())
 		}
@@ -356,12 +361,6 @@ func (c *Scrabble) handleCheckWordSubmission(
 			fmt.Println("failed to add reaction ", err.Error())
 		}
 	}
-	for _, v := range numberToEmojis(wordScore) {
-		if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
-			fmt.Println("failed to add reaction ", err.Error())
-		}
-	}
-
 	if gameComplete {
 		return c.completeGame(guildID)
 	}
