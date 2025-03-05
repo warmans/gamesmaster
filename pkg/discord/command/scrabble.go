@@ -598,6 +598,7 @@ func (c *Scrabble) completeGame(guildId string) error {
 	}
 
 	if winner != nil {
+		// this should attach the game image as well
 		if err := c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.PlayerName)); err != nil {
 			return err
 		}
