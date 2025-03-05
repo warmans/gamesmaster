@@ -26,8 +26,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/warmans/go-crossword v1.4.1 h1:3b9DzO4GGTSUg++3gdzw9NV1DIhKxWyiTrpIekN2NKc=
 github.com/warmans/go-crossword v1.4.1/go.mod h1:z6SAglMOqCUfq8wEHbrdHuwYoo5GOR/jIY2ivP8/Tmw=
-github.com/warmans/go-scrabble v1.0.3 h1:IAIdRXLkdsbe1L7gdqH4KswgmHkPOkPecYQ36hdWDiA=
-github.com/warmans/go-scrabble v1.0.3/go.mod h1:Ktoj1c8/4A99kjVxNLjdDmf/UqV1As4sYw77SlTfRY4=
+github.com/warmans/go-scrabble v1.0.4 h1:5ADvDiCfoeuniUvuruwvJKl8rlLFq8bufntfedmDXx0=
+github.com/warmans/go-scrabble v1.0.4/go.mod h1:Ktoj1c8/4A99kjVxNLjdDmf/UqV1As4sYw77SlTfRY4=
 golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
 golang.org/x/crypto v0.25.0 h1:ypSNr+bnYL2YhwoMt2zPxHFmbAN1KZs/njMG3hxUp30=
 golang.org/x/crypto v0.25.0/go.mod h1:T+wALwcMOSE0kXgUAnPAHqTLW+XHgcELELW8VaDgm/M=
