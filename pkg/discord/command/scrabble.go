@@ -264,31 +264,31 @@ func (c *Scrabble) SubCommands() []*discordgo.ApplicationCommandOption {
 
 func (c *Scrabble) handleCheckWordSubmission(
 	s *discordgo.Session,
-	guildID string,
+	guildId string,
 	placementStr string,
 	word string,
-	channelID string,
-	messageID string,
+	channelId string,
+	messageId string,
 	member *discordgo.User,
 ) error {
 
 	placement, err := scrabble.ParsePlacement(placementStr)
 	if err != nil {
-		if err := s.MessageReactionAdd(channelID, messageID, "🔥"); err != nil {
+		if err := s.MessageReactionAdd(channelId, messageId, "🔥"); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	if _, ok := c.dict[word]; !ok {
-		if err := s.MessageReactionAdd(channelID, messageID, "📖"); err != nil {
+		if err := s.MessageReactionAdd(channelId, messageId, "📖"); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	isAllowedPlayer := true
-	err = c.openScrabbleForReading(guildID, func(cw *ScrabbleState) error {
+	err = c.openScrabbleForReading(guildId, func(cw *ScrabbleState) error {
 		isAllowedPlayer = cw.Game.IsPlayerAllowed(member.Username)
 		return nil
 	})
@@ -297,7 +297,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	if !isAllowedPlayer && os.Getenv("DEV") != "true" {
-		if err := s.MessageReactionAdd(channelID, messageID, "🙅‍♂️"); err != nil {
+		if err := s.MessageReactionAdd(channelId, messageId, "🙅‍♂️"); err != nil {
 			return err
 		}
 		return nil
@@ -307,7 +307,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 	var isFirstPendingWord = false
 	var wordWasAccepted = false
 	var wordScore int
-	err = c.openScrabbleForWriting(guildID, func(sc *ScrabbleState) (*ScrabbleState, error) {
+	err = c.openScrabbleForWriting(guildId, func(sc *ScrabbleState) (*ScrabbleState, error) {
 
 		if len(sc.Game.PendingWords) == 0 {
 			isFirstPendingWord = true
@@ -315,7 +315,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 
 		result, err := sc.Game.CreatePendingWord(placement, word, member.Username)
 		if err != nil {
-			if err := s.MessageReactionAdd(channelID, messageID, "❌"); err != nil {
+			if err := s.MessageReactionAdd(channelId, messageId, "❌"); err != nil {
 				return nil, err
 			}
 			return nil, err
@@ -323,7 +323,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 		if result != nil {
 			for _, v := range result.Touching {
 				if _, ok := c.dict[cellsToString(v)]; !ok {
-					if err := s.MessageReactionAdd(channelID, messageID, "📖"); err != nil {
+					if err := s.MessageReactionAdd(channelId, messageId, "📖"); err != nil {
 						return nil, err
 					}
 					return nil, nil
@@ -341,55 +341,56 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	if isFirstPendingWord {
-		go c.runBackgroundTask(guildID)
+		go c.runBackgroundTask(guildId)
 	}
 
 	// best effort
 	if wordWasAccepted {
-		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+		if err := s.MessageReactionAdd(channelId, messageId, "✅"); err != nil {
 			fmt.Println("failed to add reaction ", err.Error())
 		}
 		for _, v := range numberToEmojis(wordScore) {
-			if err := s.MessageReactionAdd(channelID, messageID, v); err != nil {
+			if err := s.MessageReactionAdd(channelId, messageId, v); err != nil {
 				fmt.Println("failed to add reaction ", err.Error())
 			}
 		}
-		if err := c.refreshGameImage(s, guildID); err != nil {
+		if err := c.refreshGameImage(s, guildId); err != nil {
 			fmt.Println("failed refresh game image", err.Error())
 		}
 	} else {
-		if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
+		if err := s.MessageReactionAdd(channelId, messageId, "👎"); err != nil {
 			fmt.Println("failed to add reaction ", err.Error())
 		}
 	}
 	if gameComplete {
-		return c.completeGame(guildID)
+		return c.completeGame(guildId)
 	}
 
 	return nil
 }
 
-func (c *Scrabble) runBackgroundTask(guildID string) {
+func (c *Scrabble) runBackgroundTask(guildId string) {
 	for {
 		var nextRefresh time.Duration
 		var gameComplete = false
 		fmt.Println("Running background task")
-		if err := c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+		if err := c.openScrabbleForWriting(guildId, func(cw *ScrabbleState) (*ScrabbleState, error) {
 			if cw.Game.GameState == scrabble.StateStealing {
 				if err := cw.Game.TryPlacePendingWord(); err != nil {
 					return nil, err
 				}
-
 				var myNextRefresh time.Duration
-				// overdue
-				if time.Until(*cw.Game.PlaceWordAt) < 0 {
-					myNextRefresh = time.Second
-				} else {
-					// some time in the future
-					if time.Until(*cw.Game.PlaceWordAt) > time.Minute {
-						myNextRefresh = time.Minute
+				if cw.Game.PlaceWordAt != nil {
+					// overdue
+					if time.Until(*cw.Game.PlaceWordAt) < 0 {
+						myNextRefresh = time.Second
 					} else {
-						myNextRefresh = time.Until(*cw.Game.PlaceWordAt)
+						// some time in the future
+						if time.Until(*cw.Game.PlaceWordAt) > time.Minute {
+							myNextRefresh = time.Minute
+						} else {
+							myNextRefresh = time.Until(*cw.Game.PlaceWordAt)
+						}
 					}
 				}
 				if nextRefresh == 0 || nextRefresh > myNextRefresh {
@@ -404,9 +405,17 @@ func (c *Scrabble) runBackgroundTask(guildID string) {
 		}
 		if gameComplete {
 			fmt.Println("Game complete")
-			if err := c.completeGame(guildID); err != nil {
+			if err := c.completeGame(guildId); err != nil {
 				fmt.Println("failed to complete game ", err.Error())
 			}
+			return
+		} else {
+			if err := c.refreshGameImage(c.globalSession, guildId); err != nil {
+				fmt.Println("failed refresh game image ", err.Error())
+				return
+			}
+		}
+		if nextRefresh == 0 {
 			return
 		}
 
