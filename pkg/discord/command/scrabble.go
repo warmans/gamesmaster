@@ -326,6 +326,7 @@ func (c *Scrabble) handleCheckWordSubmission(
 					if err := s.MessageReactionAdd(channelID, messageID, "📖"); err != nil {
 						return nil, err
 					}
+					return nil, nil
 				}
 			}
 			wordWasAccepted = true
