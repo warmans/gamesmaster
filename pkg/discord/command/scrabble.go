@@ -288,9 +288,9 @@ func (c *Scrabble) handleCheckWordSubmission(
 	}
 
 	isAllowedPlayer := true
-	err = c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
+	err = c.openScrabbleForReading(guildID, func(cw *ScrabbleState) error {
 		isAllowedPlayer = cw.Game.IsPlayerAllowed(member.Username)
-		return cw, nil
+		return nil
 	})
 	if err != nil {
 		return err
@@ -371,15 +371,15 @@ func (c *Scrabble) handleCheckWordSubmission(
 
 func (c *Scrabble) runBackgroundTask(guildID string) {
 	for {
-		var stealComplete = false
 		var nextRefresh time.Duration
 		var gameComplete = false
 		fmt.Println("Running background task")
 		if err := c.openScrabbleForWriting(guildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
-			if err := cw.Game.TryPlacePendingWord(); err != nil {
-				return nil, err
-			}
 			if cw.Game.GameState == scrabble.StateStealing {
+				if err := cw.Game.TryPlacePendingWord(); err != nil {
+					return nil, err
+				}
+
 				var myNextRefresh time.Duration
 				// overdue
 				if time.Until(*cw.Game.PlaceWordAt) < 0 {
@@ -395,32 +395,23 @@ func (c *Scrabble) runBackgroundTask(guildID string) {
 				if nextRefresh == 0 || nextRefresh > myNextRefresh {
 					nextRefresh = myNextRefresh
 				}
-			} else {
-				stealComplete = true
 			}
 			gameComplete = cw.Game.Complete
 			return cw, nil
 		}); err != nil {
 			fmt.Println("failed to get game state ", err.Error())
-			continue
-		}
-		if stealComplete {
-			if err := c.refreshGameImage(c.globalSession, guildID); err != nil {
-				fmt.Println("failed to refresh game image ", err.Error())
-			}
-			fmt.Println("Steal complete")
 			return
 		}
 		if gameComplete {
+			fmt.Println("Game complete")
 			if err := c.completeGame(guildID); err != nil {
 				fmt.Println("failed to complete game ", err.Error())
 			}
+			return
 		}
+
 		fmt.Println("Next refresh ", nextRefresh.String())
 		time.Sleep(nextRefresh)
-		if err := c.refreshGameImage(c.globalSession, guildID); err != nil {
-			fmt.Println("failed to refresh game image ", err.Error())
-		}
 	}
 }
 
@@ -591,15 +582,21 @@ func (c *Scrabble) completeGame(guildId string) error {
 				winner = p
 			}
 		}
+
+		// always reset when the game is complete
+		cw.Game.ResetGame()
+
 		return cw, nil
 	})
 	if err != nil {
 		return err
 	}
-
 	if winner != nil {
 		// this should attach the game image as well
-		if err := c.sendThreadMessage(guildId, fmt.Sprintf("GAME COMPLETE, %s WINS", winner.PlayerName)); err != nil {
+		if err := c.sendThreadMessage(
+			guildId,
+			fmt.Sprintf("GAME COMPLETE, %s wins with %d points from %d words. GAME RESET", winner.PlayerName, winner.Score, winner.Words),
+		); err != nil {
 			return err
 		}
 	}
