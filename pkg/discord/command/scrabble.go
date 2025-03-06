@@ -209,6 +209,9 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 		}
 		return true, c.refreshGameImage(s, m.GuildID)
 	case ":why":
+		if c.lastWordError == "" {
+			return false, nil
+		}
 		return true, c.sendThreadMessage(m.GuildID, c.lastWordError)
 	case ":reset":
 		if m.Author.Username != ".warmans" {
