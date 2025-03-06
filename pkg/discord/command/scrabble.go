@@ -88,6 +88,7 @@ type Scrabble struct {
 	answerThreadID string
 	globalSession  *discordgo.Session
 	dict           map[string]struct{}
+	lastWordError  string
 }
 
 func (c *Scrabble) Prefix() string {
@@ -173,6 +174,7 @@ func (c *Scrabble) MessageHandlers() discord.MessageHandlers {
 					m.ID,
 					m.Author,
 				); err != nil {
+					c.lastWordError = err.Error()
 					fmt.Println("Failed to check word: ", err.Error())
 					return
 				}
@@ -206,6 +208,8 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 			return false, err
 		}
 		return true, c.refreshGameImage(s, m.GuildID)
+	case ":why":
+		return true, c.sendThreadMessage(m.GuildID, c.lastWordError)
 	case ":reset":
 		if m.Author.Username != ".warmans" {
 			return false, nil
