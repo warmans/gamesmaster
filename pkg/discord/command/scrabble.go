@@ -219,6 +219,7 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 		}
 		err := c.openScrabbleForWriting(m.GuildID, func(cw *ScrabbleState) (*ScrabbleState, error) {
 			cw.Game.ResetGame()
+			c.lastWordError = ""
 			return cw, nil
 		})
 		if err != nil {
@@ -255,6 +256,30 @@ func (c *Scrabble) handleTextCommand(s *discordgo.Session, command string, m *di
 			return false, err
 		}
 		return true, c.refreshGameImage(s, m.GuildID)
+	}
+
+	if strings.HasPrefix(command, ":explain") {
+		parts := strings.Split(command, " ")
+		if len(parts) != 2 {
+			return false, nil
+		}
+		explanation := ""
+		err := c.openScrabbleForReading(m.GuildID, func(cw *ScrabbleState) error {
+			for _, v := range append(append([]*scrabble.Word{}, cw.Game.PlacedWords...), cw.Game.PendingWords...) {
+				if v.Place.String() == strings.TrimSpace(parts[1]) {
+					explanation = strings.Join(v.Result.ExplainScore(), "\n")
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			return false, err
+		}
+		if explanation == "" {
+			return false, nil
+		}
+		return true, c.sendThreadMessage(m.GuildID, explanation)
 	}
 	return false, nil
 }
