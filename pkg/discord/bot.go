@@ -42,9 +42,10 @@ func NewBot(
 				Options:     make([]*discordgo.ApplicationCommandOption, 0),
 			},
 		},
-		buttonHandlers:  InteractionHandlers{},
-		modalHandlers:   InteractionHandlers{},
-		commandHandlers: map[string]InteractionHandlers{},
+		buttonHandlers:       InteractionHandlers{},
+		modalHandlers:        InteractionHandlers{},
+		autoCompleteHandlers: InteractionHandlers{},
+		commandHandlers:      map[string]InteractionHandlers{},
 	}
 	for _, c := range commmands {
 		bot.commands[0].Options = append(bot.commands[0].Options, &discordgo.ApplicationCommandOption{

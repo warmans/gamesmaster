@@ -212,7 +212,17 @@ func (c *Filmgame) handleCheckWordSubmission(
 ) error {
 	var alreadySolved = false
 	var correct = false
+	var guessAllowed = true
+	var gameComplete = true
+
 	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
+		// don't let the same user answer many in a row
+		if cw.Scores.LastUser == userName {
+			guessAllowed = false
+			// return immediately if the guess isn't allowed
+			return cw, nil
+		}
+		// check if the answer is correct (and if the game is complete)
 		for k, v := range cw.Posters {
 			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
 				if v.Guessed {
@@ -221,41 +231,37 @@ func (c *Filmgame) handleCheckWordSubmission(
 				}
 				cw.Posters[k].Guessed = true
 				correct = true
-				return cw, nil
 			}
+			// check if any are unguessed
+			if !cw.Posters[k].Guessed {
+				gameComplete = false
+			}
+		}
+		if correct {
+			// increment scores
+			cw.Scores.Add(userName)
 		}
 		return cw, nil
 	}); err != nil {
 		return err
 	}
 
+	if !guessAllowed {
+		if err := s.MessageReactionAdd(channelID, messageID, "🙅‍♂️"); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if correct {
-		gameComplete := false
-		err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
-			numCompleted := 0
-			for _, v := range cw.Posters {
-				if v.Guessed {
-					numCompleted++
-				}
+		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
+			return err
+		}
+		err := c.openFilmgameForReading(func(cw filmgame.State) error {
+			if err := c.refreshGameImage(s, cw); err != nil {
+				return err
 			}
-			if err := c.refreshGameImage(s, *cw); err != nil {
-				return cw, err
-			}
-
-			if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
-				return cw, err
-			}
-
-			// increment scores
-			cw.Scores.Add(userName)
-
-			for _, v := range cw.Posters {
-				if !v.Guessed {
-					return cw, nil
-				}
-			}
-			gameComplete = true
-			return cw, nil
+			return nil
 		})
 		if err != nil {
 			return err

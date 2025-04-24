@@ -18,6 +18,7 @@ func NewTiered(totalAnswers int) *Tiered {
 type Tiered struct {
 	TotalAnswers int
 	Scores       map[string]*Score
+	LastUser     string
 }
 
 func (t *Tiered) points(numCompleted float64) int {
@@ -46,6 +47,7 @@ func (t *Tiered) Add(userName string) {
 		t.Scores[userName].Points += t.points(numCompleted)
 		t.Scores[userName].Answers++
 	}
+	t.LastUser = userName
 }
 
 func (t *Tiered) Render() string {
