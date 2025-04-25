@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/warmans/gamesmaster/pkg/discord"
-	"github.com/warmans/gamesmaster/pkg/filmgame"
+	"github.com/warmans/gamesmaster/pkg/imagegame"
 	"github.com/warmans/gamesmaster/pkg/util"
 	"log/slog"
 	"os"
@@ -17,16 +17,16 @@ import (
 )
 
 const (
-	filmgameCommand = "filmgame"
-	gameDuration    = time.Hour * 24
+	imageGameCommand  = "imagegame"
+	imageGameDuration = time.Hour * 24 * 7
 )
 
 const (
-	FilmgameCmdStart string = "start"
+	ImageGameCmdStart string = "start"
 )
 
-func NewFilmgameCommand(logger *slog.Logger, globalSession *discordgo.Session) *Filmgame {
-	f := &Filmgame{globalSession: globalSession, logger: logger}
+func NewImageGameCommand(logger *slog.Logger, globalSession *discordgo.Session) *ImageGame {
+	f := &ImageGame{globalSession: globalSession, logger: logger}
 	go func() {
 		if err := f.start(); err != nil {
 			panic(err)
@@ -35,62 +35,62 @@ func NewFilmgameCommand(logger *slog.Logger, globalSession *discordgo.Session) *
 	return f
 }
 
-type Filmgame struct {
+type ImageGame struct {
 	logger         *slog.Logger
 	globalSession  *discordgo.Session
 	gameLock       sync.RWMutex
 	answerThreadID string
 }
 
-func (c *Filmgame) Prefix() string {
+func (c *ImageGame) Prefix() string {
 	return "flm"
 }
 
-func (c *Filmgame) RootCommand() string {
-	return filmgameCommand
+func (c *ImageGame) RootCommand() string {
+	return imageGameCommand
 }
 
-func (c *Filmgame) Description() string {
-	return "Film poster game"
+func (c *ImageGame) Description() string {
+	return "Image Game"
 }
 
-func (c *Filmgame) AutoCompleteHandlers() discord.InteractionHandlers {
+func (c *ImageGame) AutoCompleteHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Filmgame) ButtonHandlers() discord.InteractionHandlers {
+func (c *ImageGame) ButtonHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Filmgame) ModalHandlers() discord.InteractionHandlers {
+func (c *ImageGame) ModalHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{}
 }
 
-func (c *Filmgame) CommandHandlers() discord.InteractionHandlers {
+func (c *ImageGame) CommandHandlers() discord.InteractionHandlers {
 	return discord.InteractionHandlers{
-		FilmgameCmdStart: c.startFilmgame,
+		ImageGameCmdStart: c.startImageGame,
 	}
 }
 
-func (c *Filmgame) SubCommands() []*discordgo.ApplicationCommandOption {
+func (c *ImageGame) SubCommands() []*discordgo.ApplicationCommandOption {
 	return []*discordgo.ApplicationCommandOption{
 		{
-			Name:        FilmgameCmdStart,
+			Name:        ImageGameCmdStart,
 			Description: "Start the game (if available).",
 			Type:        discordgo.ApplicationCommandOptionSubCommand,
 		},
 	}
 }
 
-func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
+func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 	return discord.MessageHandlers{
 		func(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if c.answerThreadID == "" {
-				if err := c.openFilmgameForReading(func(cw filmgame.State) error {
+				if err := c.openImageGameForReading(func(cw imagegame.State) error {
 					c.answerThreadID = cw.AnswerThreadID
 					return nil
 				}); err != nil {
-					c.logger.Error("Failed to get current filmgame answer thread ID", slog.String("err", err.Error()))
+					c.logger.Error("Failed to get current ImageGame answer thread ID", slog.String("err", err.Error()))
 					return
 				}
 			}
@@ -137,7 +137,7 @@ func (c *Filmgame) MessageHandlers() discord.MessageHandlers {
 	}
 }
 
-func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channelID string, messageID string) error {
+func (c *ImageGame) handleRequestClue(s *discordgo.Session, clueID string, channelID string, messageID string) error {
 	cw, err := c.getGameSnapshot()
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func (c *Filmgame) handleRequestClue(s *discordgo.Session, clueID string, channe
 	return nil
 }
 
-func (c *Filmgame) getClueText(clueID string, answer string, gameDuration time.Duration) string {
+func (c *ImageGame) getClueText(clueID string, answer string, gameDuration time.Duration) string {
 	if gameDuration < time.Hour*12 {
 		return fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(answer[0])))
 	}
@@ -181,10 +181,10 @@ func (c *Filmgame) getClueText(clueID string, answer string, gameDuration time.D
 	return fmt.Sprintf("%s initials: %s", clueID, initials)
 }
 
-func (c *Filmgame) handleAdminAction(s *discordgo.Session, action string, channelID string, messageID string) error {
+func (c *ImageGame) handleAdminAction(s *discordgo.Session, action string, channelID string, messageID string) error {
 	switch action {
 	case "refresh":
-		if err := c.openFilmgameForReading(func(cw filmgame.State) error {
+		if err := c.openImageGameForReading(func(cw imagegame.State) error {
 			return c.refreshGameImage(s, cw)
 		}); err != nil {
 			return err
@@ -197,7 +197,7 @@ func (c *Filmgame) handleAdminAction(s *discordgo.Session, action string, channe
 	}
 }
 
-func (c *Filmgame) handleCheckWordSubmission(
+func (c *ImageGame) handleCheckWordSubmission(
 	s *discordgo.Session,
 	clueID string,
 	word string,
@@ -210,13 +210,15 @@ func (c *Filmgame) handleCheckWordSubmission(
 	var guessAllowed = true
 	var gameComplete = true
 
-	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
+	if err := c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
 		// don't let the same user answer many in a row
-		if cw.Scores.LastUser == userName {
-			guessAllowed = false
-			// return immediately if the guess isn't allowed
-			return cw, nil
-		}
+		// todo: enable to limit user participation
+		//if cw.Scores.LastUser == userName {
+		//	guessAllowed = false
+		//	// return immediately if the guess isn't allowed
+		//	return cw, nil
+		//}
+
 		// check if the answer is correct (and if the game is complete)
 		for k, v := range cw.Posters {
 			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
@@ -252,7 +254,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 			return err
 		}
-		err := c.openFilmgameForReading(func(cw filmgame.State) error {
+		err := c.openImageGameForReading(func(cw imagegame.State) error {
 			if err := c.refreshGameImage(s, cw); err != nil {
 				return err
 			}
@@ -278,7 +280,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 	return nil
 }
 
-func (c *Filmgame) refreshGameImage(s *discordgo.Session, cw filmgame.State) error {
+func (c *ImageGame) refreshGameImage(s *discordgo.Session, cw imagegame.State) error {
 	buff, err := c.renderBoard(cw)
 	if err != nil {
 		return err
@@ -288,10 +290,10 @@ func (c *Filmgame) refreshGameImage(s *discordgo.Session, cw filmgame.State) err
 		&discordgo.MessageEdit{
 			Channel: cw.OriginalMessageChannel,
 			ID:      cw.OriginalMessageID,
-			Content: util.ToPtr(filmGameDescription(gameDuration - time.Since(cw.StartedAt))),
+			Content: util.ToPtr(imageGameDescription(imageGameDuration - time.Since(cw.StartedAt))),
 			Files: []*discordgo.File{
 				{
-					Name:        "Filmgame.png",
+					Name:        "imagegame.png",
 					ContentType: "images/png",
 					Reader:      buff,
 				},
@@ -302,9 +304,9 @@ func (c *Filmgame) refreshGameImage(s *discordgo.Session, cw filmgame.State) err
 	return err
 }
 
-func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
-	var fgs filmgame.State
+	var fgs imagegame.State
 	fgs, err := c.getGameSnapshot()
 	if err != nil {
 		return err
@@ -325,10 +327,10 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	initialMessage, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: filmGameDescription(gameDuration),
+		Content: imageGameDescription(imageGameDuration),
 		Files: []*discordgo.File{
 			{
-				Name:        "Filmgame.png",
+				Name:        "imagegame.png",
 				ContentType: "images/png",
 				Reader:      board,
 			},
@@ -349,7 +351,7 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 		}
 		return err
 	}
-	if err := c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
+	if err := c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
@@ -377,9 +379,9 @@ func (c *Filmgame) startFilmgame(s *discordgo.Session, i *discordgo.InteractionC
 	})
 }
 
-func (c *Filmgame) renderBoard(state filmgame.State) (*bytes.Buffer, error) {
+func (c *ImageGame) renderBoard(state imagegame.State) (*bytes.Buffer, error) {
 	buff := &bytes.Buffer{}
-	canvas, err := filmgame.Render("./var/filmgame/game/images", &state)
+	canvas, err := imagegame.Render("./var/imagegame/game/images", &state)
 	if err != nil {
 		return nil, err
 	}
@@ -389,18 +391,18 @@ func (c *Filmgame) renderBoard(state filmgame.State) (*bytes.Buffer, error) {
 	return buff, nil
 }
 
-func (c *Filmgame) openFilmgameForReading(cb func(cw filmgame.State) error) error {
+func (c *ImageGame) openImageGameForReading(cb func(cw imagegame.State) error) error {
 	c.gameLock.RLock()
 	defer c.gameLock.RUnlock()
 
 	//todo: prefix directory with server ID
-	f, err := os.Open("var/filmgame/game/current.json")
+	f, err := os.Open("var/imagegame/game/current.json")
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	cw := filmgame.State{}
+	cw := imagegame.State{}
 	if err := json.NewDecoder(f).Decode(&cw); err != nil {
 		return err
 	}
@@ -408,17 +410,17 @@ func (c *Filmgame) openFilmgameForReading(cb func(cw filmgame.State) error) erro
 	return cb(cw)
 }
 
-func (c *Filmgame) openFilmgameForWriting(cb func(cw *filmgame.State) (*filmgame.State, error)) error {
+func (c *ImageGame) openImageGameForWriting(cb func(cw *imagegame.State) (*imagegame.State, error)) error {
 	c.gameLock.Lock()
 	defer c.gameLock.Unlock()
 
-	f, err := os.OpenFile("var/filmgame/game/current.json", os.O_RDWR|os.O_EXCL, 0666)
+	f, err := os.OpenFile("var/imagegame/game/current.json", os.O_RDWR|os.O_EXCL, 0666)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	cw := &filmgame.State{}
+	cw := &imagegame.State{}
 	if err := json.NewDecoder(f).Decode(cw); err != nil {
 		return err
 	}
@@ -442,16 +444,16 @@ func (c *Filmgame) openFilmgameForWriting(cb func(cw *filmgame.State) (*filmgame
 	}
 	return nil
 }
-func (c *Filmgame) getGameSnapshot() (filmgame.State, error) {
-	var snapshot filmgame.State
-	err := c.openFilmgameForReading(func(cw filmgame.State) error {
+func (c *ImageGame) getGameSnapshot() (imagegame.State, error) {
+	var snapshot imagegame.State
+	err := c.openImageGameForReading(func(cw imagegame.State) error {
 		snapshot = cw
 		return nil
 	})
 	return snapshot, err
 }
 
-func (c *Filmgame) dumpState(cw *filmgame.State, err error) error {
+func (c *ImageGame) dumpState(cw *imagegame.State, err error) error {
 	c.logger.Info("Dumping state...")
 	if encerr := json.NewEncoder(os.Stderr).Encode(cw); encerr != nil {
 		c.logger.Error("failed to dump state", slog.String("err", err.Error()))
@@ -459,21 +461,21 @@ func (c *Filmgame) dumpState(cw *filmgame.State, err error) error {
 	return err
 }
 
-func (c *Filmgame) start() error {
+func (c *ImageGame) start() error {
 	minutely := time.NewTicker(time.Minute)
 	hourly := time.NewTicker(time.Hour)
 	defer minutely.Stop()
 	for {
 		select {
 		case <-hourly.C:
-			if err := c.openFilmgameForReading(func(cw filmgame.State) error {
+			if err := c.openImageGameForReading(func(cw imagegame.State) error {
 				return c.refreshGameImage(c.globalSession, cw)
 			}); err != nil {
 				c.logger.Error("Failed hourly image refresh", slog.String("err", err.Error()))
 			}
 		case <-minutely.C:
 			triggerCompletion := false
-			if err := c.openFilmgameForReading(func(cw filmgame.State) error {
+			if err := c.openImageGameForReading(func(cw imagegame.State) error {
 				if cw.StartedAt.IsZero() {
 					return nil
 				}
@@ -483,7 +485,7 @@ func (c *Filmgame) start() error {
 						unguessed++
 					}
 				}
-				if time.Since(cw.StartedAt) >= time.Hour*24 && unguessed > 0 {
+				if time.Since(cw.StartedAt) >= imageGameDuration && unguessed > 0 {
 					triggerCompletion = true
 				}
 				return nil
@@ -499,8 +501,8 @@ func (c *Filmgame) start() error {
 	}
 }
 
-func (c *Filmgame) forceCompleteGame(reason string) error {
-	return c.openFilmgameForWriting(func(cw *filmgame.State) (*filmgame.State, error) {
+func (c *ImageGame) forceCompleteGame(reason string) error {
+	return c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
 		for k := range cw.Posters {
 			cw.Posters[k].Guessed = true
 		}
@@ -517,7 +519,7 @@ func (c *Filmgame) forceCompleteGame(reason string) error {
 	})
 }
 
-func filmGameDescription(timeLeft time.Duration) string {
+func imageGameDescription(timeLeft time.Duration) string {
 	return fmt.Sprintf(
 		"Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have %s to complete the puzzle.",
 		timeLeft.Truncate(time.Minute).String(),

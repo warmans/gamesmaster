@@ -1,4 +1,4 @@
-package filmgame
+package imagegame
 
 import (
 	"fmt"
@@ -34,16 +34,15 @@ type State struct {
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
-	Posters                []*Poster
+	Posters                []*Image
 	Scores                 *scores.Tiered
 	StartedAt              time.Time
 }
 
-type Poster struct {
-	OriginalImage string
-	ObscuredImage string
-	Answer        string
-	Guessed       bool
+type Image struct {
+	Path    string
+	Answer  string
+	Guessed bool
 }
 
 func Render(imagesDir string, state *State) (*gg.Context, error) {
@@ -64,12 +63,11 @@ func Render(imagesDir string, state *State) (*gg.Context, error) {
 		var imagePath string
 		labelBackground := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 		labelForeground := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+
+		imagePath = path.Join(imagesDir, v.Path)
 		if v.Guessed {
-			imagePath = path.Join(imagesDir, v.OriginalImage)
 			labelBackground = color.RGBA{R: 0, G: 255, B: 0, A: 255}
 			labelForeground = color.RGBA{R: 0, G: 0, B: 0, A: 255}
-		} else {
-			imagePath = path.Join(imagesDir, v.ObscuredImage)
 		}
 
 		im, err := gg.LoadImage(imagePath)
