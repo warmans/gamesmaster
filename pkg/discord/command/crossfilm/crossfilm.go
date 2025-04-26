@@ -17,7 +17,6 @@ import (
 )
 
 var posterGuessRegex = regexp.MustCompile(`[Gg]uess\s([ADad0-9]+)\s(.+)`)
-var whitespaceRegex = regexp.MustCompile(`\s+`)
 
 const (
 	crossfilmCommand = "crossfilm"
@@ -440,18 +439,6 @@ func (c *Crossfilm) forceCompleteGame(reason string) error {
 		}
 		return cw, nil
 	})
-}
-
-func simplifyGuess(guess string) string {
-	return whitespaceRegex.ReplaceAllString(trimAllPrefix(guess, "a ", "the "), "")
-}
-
-func trimAllPrefix(str string, trim ...string) string {
-	str = strings.TrimSpace(str)
-	for _, v := range trim {
-		str = strings.TrimSpace(strings.TrimPrefix(str, v))
-	}
-	return str
 }
 
 func gameDescription(timeLeft time.Duration) string {
