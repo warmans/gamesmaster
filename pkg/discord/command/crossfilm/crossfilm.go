@@ -132,7 +132,7 @@ func (c *Crossfilm) handleCheckWordSubmission(
 	if err := c.opencrossfilmForWriting(func(cw *crossfilm.State) (*crossfilm.State, error) {
 		wordId := strings.TrimLeft(clueID, "AD")
 		for k, v := range cw.FilmgameState {
-			if fmt.Sprintf("%d", k+1) == wordId && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
+			if fmt.Sprintf("%d", k+1) == wordId && util.GuessRoughlyMatchesAnswer(word, v.Answer) {
 				if v.Guessed {
 					alreadySolved = true
 					break

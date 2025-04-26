@@ -219,7 +219,7 @@ func (c *Filmgame) handleCheckWordSubmission(
 		}
 		// check if the answer is correct (and if the game is complete)
 		for k, v := range cw.Posters {
-			if fmt.Sprintf("%d", k+1) == clueID && strings.EqualFold(simplifyGuess(word), simplifyGuess(v.Answer)) {
+			if fmt.Sprintf("%d", k+1) == clueID && util.GuessRoughlyMatchesAnswer(word, v.Answer) {
 				if v.Guessed {
 					alreadySolved = true
 					return cw, nil
