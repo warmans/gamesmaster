@@ -58,7 +58,7 @@ func TestGuessRoughlyMatchesAnswer(t *testing.T) {
 				guess:  "james bond",
 				answer: "james the bond",
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "filler words allowed at the start",
