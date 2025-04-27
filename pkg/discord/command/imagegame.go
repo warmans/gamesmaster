@@ -286,7 +286,7 @@ func (c *ImageGame) refreshGameImage(s *discordgo.Session, cw imagegame.State) e
 		&discordgo.MessageEdit{
 			Channel: cw.OriginalMessageChannel,
 			ID:      cw.OriginalMessageID,
-			Content: util.ToPtr(imageGameDescription(imageGameDuration - time.Since(cw.StartedAt))),
+			Content: util.ToPtr(imageGameDescription(imageGameDuration-time.Since(cw.StartedAt), cw.Cfg.RequireAlternatingUsers)),
 			Files: []*discordgo.File{
 				{
 					Name:        "imagegame.png",
@@ -302,12 +302,12 @@ func (c *ImageGame) refreshGameImage(s *discordgo.Session, cw imagegame.State) e
 
 func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
-	var fgs imagegame.State
-	fgs, err := c.getGameSnapshot()
+	var gameState imagegame.State
+	gameState, err := c.getGameSnapshot()
 	if err != nil {
 		return err
 	}
-	if fgs.AnswerThreadID != "" {
+	if gameState.AnswerThreadID != "" {
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -317,13 +317,13 @@ func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.Interactio
 		})
 	}
 
-	board, err := c.renderBoard(fgs)
+	board, err := c.renderBoard(gameState)
 	if err != nil {
 		return err
 	}
 
 	initialMessage, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: imageGameDescription(imageGameDuration),
+		Content: imageGameDescription(imageGameDuration, gameState.Cfg.RequireAlternatingUsers),
 		Files: []*discordgo.File{
 			{
 				Name:        "imagegame.png",
@@ -338,7 +338,7 @@ func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.Interactio
 	}
 
 	thread, err := s.MessageThreadStartComplex(initialMessage.ChannelID, initialMessage.ID, &discordgo.ThreadStart{
-		Name: fmt.Sprintf("%s Answers", fgs.GameTitle),
+		Name: fmt.Sprintf("%s Answers", gameState.GameTitle),
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
 	if err != nil {
@@ -515,13 +515,18 @@ func (c *ImageGame) forceCompleteGame(reason string) error {
 	})
 }
 
-func imageGameDescription(timeLeft time.Duration) string {
+func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) string {
+	extraRulesText := ""
+	if requireAlternatingUsers {
+		extraRulesText = "\nExtra rules: Guessing must alternate between users. You cannot submit multiple guesses in a row."
+	}
 	return fmt.Sprintf(
 		"Guess the posters by adding a message to the attached thread: "+
 			"- `guess` e.g. `guess 1 fargo` - submit an answer. \n"+
-			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n\n"+
-			"You have %s remaining to complete the puzzle.\n  ",
+			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n"+
+			"You have %s remaining to complete the puzzle.\n%s",
 		imageGameClueThreshold,
 		timeLeft.Truncate(time.Minute).String(),
+		extraRulesText,
 	)
 }
