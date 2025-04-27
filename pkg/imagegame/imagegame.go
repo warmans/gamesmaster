@@ -24,8 +24,9 @@ func init() {
 }
 
 type Config struct {
-	ImagesWidth  int64
-	ImagesHeight int64
+	ImagesWidth             int64
+	ImagesHeight            int64
+	RequireAlternatingUsers bool
 }
 
 type State struct {

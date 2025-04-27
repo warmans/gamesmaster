@@ -27,6 +27,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	var imageWidth int64
 	var imageHeight int64
 	var preview bool
+	var requireAlternatingUsers bool
 
 	cmd := &cobra.Command{
 		Use:   "imagegame-init",
@@ -45,8 +46,9 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				return err
 			}
 			state.Cfg = &imagegame.Config{
-				ImagesWidth:  imageWidth,
-				ImagesHeight: imageHeight,
+				ImagesWidth:             imageWidth,
+				ImagesHeight:            imageHeight,
+				RequireAlternatingUsers: requireAlternatingUsers,
 			}
 
 			fmt.Println("Rendering...")
@@ -79,6 +81,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	flag.StringVarEnv(cmd.Flags(), &gameName, "", "name", "", "name to give the game")
 	flag.Int64VarEnv(cmd.Flags(), &imageWidth, "", "image-width", 200, "image width")
 	flag.Int64VarEnv(cmd.Flags(), &imageHeight, "", "image-height", 300, "image height")
+	flag.BoolVarEnv(cmd.Flags(), &requireAlternatingUsers, "", "require-alternating-users", false, "prevent same user answering multiple questions in a row")
 
 	flag.Parse()
 

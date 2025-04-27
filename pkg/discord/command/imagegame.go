@@ -207,13 +207,13 @@ func (c *ImageGame) handleCheckWordSubmission(
 	var gameComplete = true
 
 	if err := c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
-		// don't let the same user answer many in a row
-		// todo: enable to limit user participation
-		//if cw.Scores.LastUser == userName {
-		//	guessAllowed = false
-		//	// return immediately if the guess isn't allowed
-		//	return cw, nil
-		//}
+
+		if cw.Cfg.RequireAlternatingUsers && cw.Scores.LastUser == userName {
+			// don't let the same user answer many in a row
+			guessAllowed = false
+			// return immediately if the guess isn't allowed
+			return cw, nil
+		}
 
 		// check if the answer is correct (and if the game is complete)
 		for k, v := range cw.Posters {
