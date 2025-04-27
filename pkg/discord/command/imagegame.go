@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	imageGameCommand  = "imagegame"
-	imageGameDuration = time.Hour * 24 * 7
+	imageGameCommand       = "imagegame"
+	imageGameDuration      = time.Hour * 24 * 7
+	imageGameClueThreshold = 5
 )
 
 const (
@@ -142,13 +143,8 @@ func (c *ImageGame) handleRequestClue(s *discordgo.Session, clueID string, chann
 	if err != nil {
 		return err
 	}
-	numUnsolved := 0
-	for _, v := range cw.Posters {
-		if !v.Guessed {
-			numUnsolved++
-		}
-	}
-	if numUnsolved > 5 {
+
+	if cw.NumUnsolved() > imageGameClueThreshold {
 		if err := s.MessageReactionAdd(channelID, messageID, "👎"); err != nil {
 			return err
 		}
@@ -521,7 +517,11 @@ func (c *ImageGame) forceCompleteGame(reason string) error {
 
 func imageGameDescription(timeLeft time.Duration) string {
 	return fmt.Sprintf(
-		"Guess the posters by adding a message to the attached thread e.g. `guess 1 fargo`. You have %s to complete the puzzle.",
+		"Guess the posters by adding a message to the attached thread: "+
+			"- `guess` e.g. `guess 1 fargo` - submit an answer. \n"+
+			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n\n"+
+			"You have %s remaining to complete the puzzle.\n  ",
+		imageGameClueThreshold,
 		timeLeft.Truncate(time.Minute).String(),
 	)
 }

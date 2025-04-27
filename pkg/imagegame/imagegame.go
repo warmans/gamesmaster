@@ -39,6 +39,16 @@ type State struct {
 	StartedAt              time.Time
 }
 
+func (s *State) NumUnsolved() int {
+	numUnsolved := len(s.Posters)
+	for _, v := range s.Posters {
+		if v.Guessed {
+			numUnsolved--
+		}
+	}
+	return numUnsolved
+}
+
 type Image struct {
 	Path    string
 	Answer  string
@@ -76,12 +86,18 @@ func Render(imagesDir string, state *State) (*gg.Context, error) {
 		}
 		dc.DrawImage(im, xPosition*imageWidth, row*imageHeight)
 		dc.SetColor(labelBackground)
-		dc.DrawRectangle(float64(xPosition*imageWidth), float64(row*imageHeight), 35, 35)
+		dc.DrawRectangle(float64(xPosition*imageWidth), float64(row*imageHeight), 50, 45)
 		dc.Fill()
 
+		// center single-digit numbers
+		imageNumberXOffset := 0.0
+		if k+1 < 10 {
+			imageNumberXOffset = 8.0
+		}
+
 		dc.SetColor(labelForeground)
-		dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 20}))
-		dc.DrawString(fmt.Sprintf("%d", k+1), float64(xPosition*imageWidth)+10, float64(row*imageHeight)+25)
+		dc.SetFontFace(truetype.NewFace(font, &truetype.Options{Size: 30}))
+		dc.DrawString(fmt.Sprintf("%d", k+1), float64(xPosition*imageWidth)+8+imageNumberXOffset, float64(row*imageHeight)+32)
 
 		dc.Stroke()
 
