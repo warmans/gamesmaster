@@ -211,7 +211,7 @@ func (c *ImageGame) handleCheckWordSubmission(
 
 	if err := c.openImageGameForWriting(guildID, func(cw *imagegame.State) (*imagegame.State, error) {
 
-		if cw.Cfg.RequireAlternatingUsers && cw.Scores.LastUser == userName {
+		if cw.Cfg.RequireAlternatingUsers && cw.Scores.LastUser == userName && cw.NumUnsolved() > 3 {
 			// don't let the same user answer many in a row
 			guessAllowed = false
 			// return immediately if the guess isn't allowed
@@ -555,13 +555,13 @@ func (c *ImageGame) forceCompleteGame(guildID, reason string) error {
 func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) string {
 	extraRulesText := ""
 	if requireAlternatingUsers {
-		extraRulesText = "\nExtra rules: Guessing must alternate between users. You cannot submit multiple guesses in a row.\n" +
-			" The bot will respond :man_gesturing_no: if you guess while not allowed."
+		extraRulesText = "\nExtra rules: Guessing must alternate between users. You cannot submit multiple guesses in a row." +
+			" The bot will respond :man_gesturing_no: if you guess while not allowed.\n\n"
 	}
 	return fmt.Sprintf(
 		"Guess the posters by adding a message to the attached thread: \n"+
 			"- `guess` e.g. `guess 1 fargo` - submit an answer. \n"+
-			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n"+
+			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n\n"+
 			"You have %s remaining to complete the puzzle.\n%s",
 		imageGameClueThreshold,
 		timeLeft.Truncate(time.Minute).String(),
