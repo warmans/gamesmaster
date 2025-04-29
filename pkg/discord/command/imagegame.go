@@ -555,10 +555,11 @@ func (c *ImageGame) forceCompleteGame(guildID, reason string) error {
 func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) string {
 	extraRulesText := ""
 	if requireAlternatingUsers {
-		extraRulesText = "\nExtra rules: Guessing must alternate between users. You cannot submit multiple guesses in a row."
+		extraRulesText = "\nExtra rules: Guessing must alternate between users. You cannot submit multiple guesses in a row.\n" +
+			" The bot will respond :man_gesturing_no: if you guess while not allowed."
 	}
 	return fmt.Sprintf(
-		"Guess the posters by adding a message to the attached thread: "+
+		"Guess the posters by adding a message to the attached thread: \n"+
 			"- `guess` e.g. `guess 1 fargo` - submit an answer. \n"+
 			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n"+
 			"You have %s remaining to complete the puzzle.\n%s",
