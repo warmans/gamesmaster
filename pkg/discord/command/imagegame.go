@@ -341,7 +341,7 @@ func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.Interactio
 	}
 
 	thread, err := s.MessageThreadStartComplex(initialMessage.ChannelID, initialMessage.ID, &discordgo.ThreadStart{
-		Name: fmt.Sprintf("%s Answers", gameState.GameTitle),
+		Name: gameState.GameTitle,
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
 	if err != nil {
