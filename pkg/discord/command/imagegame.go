@@ -167,9 +167,9 @@ func (c *ImageGame) handleRequestClue(s *discordgo.Session, guildID string, clue
 }
 
 func (c *ImageGame) getClueText(clueID string, answer string, gameDuration time.Duration) string {
-	if gameDuration < time.Hour*12 {
-		return fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(answer[0])))
-	}
+	//if gameDuration < time.Hour*12 {
+	//	return fmt.Sprintf("%s starts with: %s", clueID, strings.ToUpper(string(answer[0])))
+	//}
 	initials := ""
 	for _, w := range strings.Split(answer, " ") {
 		if len(w) > 0 && !unicode.IsNumber(rune(w[0])) {
