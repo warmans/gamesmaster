@@ -10,6 +10,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/util"
 	"log/slog"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -87,7 +88,7 @@ func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 	return discord.MessageHandlers{
 		func(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if c.answerThreadID == "" {
-				if err := c.openImageGameForReading(func(cw imagegame.State) error {
+				if err := c.openImageGameForReading(m.GuildID, func(cw imagegame.State) error {
 					c.answerThreadID = cw.AnswerThreadID
 					return nil
 				}); err != nil {
@@ -100,7 +101,7 @@ func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 				// is the message a request for a clue?
 				clueMatches := posterClueRegex.FindStringSubmatch(m.Content)
 				if clueMatches != nil || len(clueMatches) == 2 {
-					if err := c.handleRequestClue(s, clueMatches[1], m.ChannelID, m.ID); err != nil {
+					if err := c.handleRequestClue(s, m.GuildID, clueMatches[1], m.ChannelID, m.ID); err != nil {
 						c.logger.Error("Failed to get clue", slog.String("err", err.Error()))
 					}
 					return
@@ -110,7 +111,7 @@ func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 				if m.Author.Username == ".warmans" {
 					adminMatches := adminRegex.FindStringSubmatch(m.Content)
 					if adminMatches != nil || len(adminMatches) == 2 {
-						if err := c.handleAdminAction(s, adminMatches[1], m.ChannelID, m.ID); err != nil {
+						if err := c.handleAdminAction(s, adminMatches[1], m.GuildID, m.ChannelID, m.ID); err != nil {
 							c.logger.Error("Admin action failed", slog.String("err", err.Error()))
 						}
 						return
@@ -124,6 +125,7 @@ func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 				}
 				if err := c.handleCheckWordSubmission(
 					s,
+					m.GuildID,
 					guessMatches[1],
 					guessMatches[2],
 					m.ChannelID,
@@ -138,8 +140,8 @@ func (c *ImageGame) MessageHandlers() discord.MessageHandlers {
 	}
 }
 
-func (c *ImageGame) handleRequestClue(s *discordgo.Session, clueID string, channelID string, messageID string) error {
-	cw, err := c.getGameSnapshot()
+func (c *ImageGame) handleRequestClue(s *discordgo.Session, guildID string, clueID string, channelID string, messageID string) error {
+	cw, err := c.getGameSnapshot(guildID)
 	if err != nil {
 		return err
 	}
@@ -177,17 +179,17 @@ func (c *ImageGame) getClueText(clueID string, answer string, gameDuration time.
 	return fmt.Sprintf("%s initials: %s", clueID, initials)
 }
 
-func (c *ImageGame) handleAdminAction(s *discordgo.Session, action string, channelID string, messageID string) error {
+func (c *ImageGame) handleAdminAction(s *discordgo.Session, action string, guildID string, channelID string, messageID string) error {
 	switch action {
 	case "refresh":
-		if err := c.openImageGameForReading(func(cw imagegame.State) error {
+		if err := c.openImageGameForReading(guildID, func(cw imagegame.State) error {
 			return c.refreshGameImage(s, cw)
 		}); err != nil {
 			return err
 		}
 		return s.MessageReactionAdd(channelID, messageID, "👀")
 	case "complete":
-		return c.forceCompleteGame("admin action")
+		return c.forceCompleteGame(guildID, "admin action")
 	default:
 		return s.MessageReactionAdd(channelID, messageID, "🤷")
 	}
@@ -195,6 +197,7 @@ func (c *ImageGame) handleAdminAction(s *discordgo.Session, action string, chann
 
 func (c *ImageGame) handleCheckWordSubmission(
 	s *discordgo.Session,
+	guildID string,
 	clueID string,
 	word string,
 	channelID string,
@@ -206,7 +209,7 @@ func (c *ImageGame) handleCheckWordSubmission(
 	var guessAllowed = true
 	var gameComplete = true
 
-	if err := c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
+	if err := c.openImageGameForWriting(guildID, func(cw *imagegame.State) (*imagegame.State, error) {
 
 		if cw.Cfg.RequireAlternatingUsers && cw.Scores.LastUser == userName {
 			// don't let the same user answer many in a row
@@ -250,7 +253,7 @@ func (c *ImageGame) handleCheckWordSubmission(
 		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 			return err
 		}
-		err := c.openImageGameForReading(func(cw imagegame.State) error {
+		err := c.openImageGameForReading(guildID, func(cw imagegame.State) error {
 			if err := c.refreshGameImage(s, cw); err != nil {
 				return err
 			}
@@ -260,7 +263,7 @@ func (c *ImageGame) handleCheckWordSubmission(
 			return err
 		}
 		if gameComplete {
-			return c.forceCompleteGame("All items have been solved.")
+			return c.forceCompleteGame(guildID, "All items have been solved.")
 		}
 	} else {
 		if alreadySolved {
@@ -303,7 +306,7 @@ func (c *ImageGame) refreshGameImage(s *discordgo.Session, cw imagegame.State) e
 func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
 	var gameState imagegame.State
-	gameState, err := c.getGameSnapshot()
+	gameState, err := c.getGameSnapshot(i.GuildID)
 	if err != nil {
 		return err
 	}
@@ -347,7 +350,7 @@ func (c *ImageGame) startImageGame(s *discordgo.Session, i *discordgo.Interactio
 		}
 		return err
 	}
-	if err := c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
+	if err := c.openImageGameForWriting(i.GuildID, func(cw *imagegame.State) (*imagegame.State, error) {
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
@@ -387,12 +390,11 @@ func (c *ImageGame) renderBoard(state imagegame.State) (*bytes.Buffer, error) {
 	return buff, nil
 }
 
-func (c *ImageGame) openImageGameForReading(cb func(cw imagegame.State) error) error {
+func (c *ImageGame) openImageGameForReading(guildID string, cb func(cw imagegame.State) error) error {
 	c.gameLock.RLock()
 	defer c.gameLock.RUnlock()
 
-	//todo: prefix directory with server ID
-	f, err := os.Open("var/imagegame/game/current.json")
+	f, err := os.Open(fmt.Sprintf("var/imagegame/game/%s.json", guildID))
 	if err != nil {
 		return err
 	}
@@ -406,11 +408,11 @@ func (c *ImageGame) openImageGameForReading(cb func(cw imagegame.State) error) e
 	return cb(cw)
 }
 
-func (c *ImageGame) openImageGameForWriting(cb func(cw *imagegame.State) (*imagegame.State, error)) error {
+func (c *ImageGame) openImageGameForWriting(guildID string, cb func(cw *imagegame.State) (*imagegame.State, error)) error {
 	c.gameLock.Lock()
 	defer c.gameLock.Unlock()
 
-	f, err := os.OpenFile("var/imagegame/game/current.json", os.O_RDWR|os.O_EXCL, 0666)
+	f, err := os.OpenFile(path.Join(c.gameDir(), fmt.Sprintf("%s.json", guildID)), os.O_RDWR|os.O_EXCL, 0666)
 	if err != nil {
 		return err
 	}
@@ -440,9 +442,9 @@ func (c *ImageGame) openImageGameForWriting(cb func(cw *imagegame.State) (*image
 	}
 	return nil
 }
-func (c *ImageGame) getGameSnapshot() (imagegame.State, error) {
+func (c *ImageGame) getGameSnapshot(guildID string) (imagegame.State, error) {
 	var snapshot imagegame.State
-	err := c.openImageGameForReading(func(cw imagegame.State) error {
+	err := c.openImageGameForReading(guildID, func(cw imagegame.State) error {
 		snapshot = cw
 		return nil
 	})
@@ -457,6 +459,26 @@ func (c *ImageGame) dumpState(cw *imagegame.State, err error) error {
 	return err
 }
 
+func (c *ImageGame) gameDir() string {
+	return "var/imagegame/game"
+}
+
+func (c *ImageGame) activeGuildIDs() ([]string, error) {
+
+	entries, err := os.ReadDir(c.gameDir())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0)
+	for _, v := range entries {
+		if v.IsDir() || !strings.HasSuffix(v.Name(), ".json") {
+			continue
+		}
+		out = append(out, strings.TrimSuffix(v.Name(), ".json"))
+	}
+	return out, nil
+}
+
 func (c *ImageGame) start() error {
 	minutely := time.NewTicker(time.Minute)
 	hourly := time.NewTicker(time.Hour)
@@ -464,41 +486,56 @@ func (c *ImageGame) start() error {
 	for {
 		select {
 		case <-hourly.C:
-			if err := c.openImageGameForReading(func(cw imagegame.State) error {
-				return c.refreshGameImage(c.globalSession, cw)
-			}); err != nil {
-				c.logger.Error("Failed hourly image refresh", slog.String("err", err.Error()))
+			activeGuilds, err := c.activeGuildIDs()
+			if err != nil {
+				c.logger.Error("Failed to get active guilds", slog.String("err", err.Error()))
+				continue
 			}
+			for _, guildID := range activeGuilds {
+				if err := c.openImageGameForReading(guildID, func(cw imagegame.State) error {
+					return c.refreshGameImage(c.globalSession, cw)
+				}); err != nil {
+					c.logger.Error("Failed hourly image refresh", slog.String("err", err.Error()))
+				}
+			}
+
 		case <-minutely.C:
-			triggerCompletion := false
-			if err := c.openImageGameForReading(func(cw imagegame.State) error {
-				if cw.StartedAt.IsZero() {
-					return nil
-				}
-				unguessed := 0
-				for _, v := range cw.Posters {
-					if !v.Guessed {
-						unguessed++
-					}
-				}
-				if time.Since(cw.StartedAt) >= imageGameDuration && unguessed > 0 {
-					triggerCompletion = true
-				}
-				return nil
-			}); err != nil {
-				c.logger.Error("Failed minutely game check", slog.String("err", err.Error()))
+			activeGuilds, err := c.activeGuildIDs()
+			if err != nil {
+				c.logger.Error("Failed to get active guilds", slog.String("err", err.Error()))
+				continue
 			}
-			if triggerCompletion {
-				if err := c.forceCompleteGame("Ran out of time."); err != nil {
-					c.logger.Error("Failed to complete game", slog.String("err", err.Error()))
+			for _, guildID := range activeGuilds {
+				triggerCompletion := false
+				if err := c.openImageGameForReading(guildID, func(cw imagegame.State) error {
+					if cw.StartedAt.IsZero() {
+						return nil
+					}
+					unguessed := 0
+					for _, v := range cw.Posters {
+						if !v.Guessed {
+							unguessed++
+						}
+					}
+					if time.Since(cw.StartedAt) >= imageGameDuration && unguessed > 0 {
+						triggerCompletion = true
+					}
+					return nil
+				}); err != nil {
+					c.logger.Error("Failed minutely game check", slog.String("err", err.Error()))
+				}
+				if triggerCompletion {
+					if err := c.forceCompleteGame(guildID, "Ran out of time."); err != nil {
+						c.logger.Error("Failed to complete game", slog.String("err", err.Error()))
+					}
 				}
 			}
 		}
 	}
 }
 
-func (c *ImageGame) forceCompleteGame(reason string) error {
-	return c.openImageGameForWriting(func(cw *imagegame.State) (*imagegame.State, error) {
+func (c *ImageGame) forceCompleteGame(guildID, reason string) error {
+	return c.openImageGameForWriting(guildID, func(cw *imagegame.State) (*imagegame.State, error) {
 		for k := range cw.Posters {
 			cw.Posters[k].Guessed = true
 		}

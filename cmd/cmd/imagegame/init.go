@@ -22,7 +22,7 @@ var spaces = regexp.MustCompile(`\s+`)
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
 	var gameStateDir string
-	var imagesDir string
+	var guildID string
 	var gameName string
 	var imageWidth int64
 	var imageHeight int64
@@ -36,15 +36,21 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 			if gameName == "" {
 				return fmt.Errorf("-name is required")
 			}
+			if guildID == "" {
+				return fmt.Errorf("-guild-id is required")
+			}
+
+			imagesDir := path.Join(gameStateDir, "images")
 
 			if err := renameImages(imagesDir); err != nil {
 				return fmt.Errorf("failed to rename images: %w", err)
 			}
 
-			state, err := createStateFromImages(imagesDir, gameName)
+			state, err := createStateFromImages(imagesDir, gameName, guildID)
 			if err != nil {
 				return err
 			}
+
 			state.Cfg = &imagegame.Config{
 				ImagesWidth:             imageWidth,
 				ImagesHeight:            imageHeight,
@@ -62,7 +68,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				}
 			}
 
-			currentState, err := os.Create(path.Join(gameStateDir, "current.json"))
+			currentState, err := os.Create(path.Join(gameStateDir, fmt.Sprintf("%s.json", guildID)))
 			if err != nil {
 				return err
 			}
@@ -76,7 +82,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	}
 
 	flag.StringVarEnv(cmd.Flags(), &gameStateDir, "", "output-dir", "./var/imagegame/game", "")
-	flag.StringVarEnv(cmd.Flags(), &imagesDir, "", "images-dir", "./var/imagegame/game/images", "")
+	flag.StringVarEnv(cmd.Flags(), &guildID, "", "guild-id", "", "")
 	flag.BoolVarEnv(cmd.Flags(), &preview, "", "preview", true, "dump an image of the complete crossword")
 	flag.StringVarEnv(cmd.Flags(), &gameName, "", "name", "", "name to give the game")
 	flag.Int64VarEnv(cmd.Flags(), &imageWidth, "", "image-width", 200, "image width")
@@ -88,12 +94,16 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	return cmd
 }
 
-func createStateFromImages(imagesDir string, gameTitle string) (*imagegame.State, error) {
+func createStateFromImages(imagesDir string, gameTitle string, guildID string) (*imagegame.State, error) {
 	files, err := os.ReadDir(imagesDir)
 	if err != nil {
 		return nil, err
 	}
-	state := &imagegame.State{Posters: make([]*imagegame.Image, 0), GameTitle: gameTitle}
+	state := &imagegame.State{
+		Posters:   make([]*imagegame.Image, 0),
+		GameTitle: gameTitle,
+		GuildID:   guildID,
+	}
 	for _, fd := range files {
 		if fd.IsDir() || strings.Contains(fd.Name(), ".blur.") {
 			continue

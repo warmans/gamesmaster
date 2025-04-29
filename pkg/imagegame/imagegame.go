@@ -32,6 +32,7 @@ type Config struct {
 type State struct {
 	GameTitle              string
 	Cfg                    *Config
+	GuildID                string
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
@@ -57,12 +58,13 @@ type Image struct {
 }
 
 func Render(imagesDir string, state *State) (*gg.Context, error) {
+	var imagesPerRow = 8.0
 	var imageWidth = int(state.Cfg.ImagesWidth)
 	var imageHeight = int(state.Cfg.ImagesHeight)
 	var numImages = len(state.Posters)
-	var imagesPerRow = int(math.Ceil(float64(numImages) / 4.0))
-	var boardWidth = imagesPerRow * imageWidth
-	var boardHeight = (numImages / imagesPerRow) * imageHeight
+	var imagesPerColumn = math.Ceil(float64(numImages) / imagesPerRow)
+	var boardWidth = int(math.Ceil(imagesPerRow * float64(imageWidth)))
+	var boardHeight = int(math.Ceil(imagesPerColumn * float64(imageHeight)))
 
 	dc := gg.NewContext(boardWidth, boardHeight)
 	dc.SetColor(color.Black)
