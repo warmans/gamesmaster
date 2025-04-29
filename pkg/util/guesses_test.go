@@ -68,6 +68,14 @@ func TestGuessRoughlyMatchesAnswer(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "the lighthouse",
+			args: args{
+				guess:  "The lighthouse",
+				answer: "the lighthouse",
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

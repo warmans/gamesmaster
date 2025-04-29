@@ -11,7 +11,7 @@ func GuessRoughlyMatchesAnswer(guess string, answer string) bool {
 }
 
 func SimplifyGuess(guess string) string {
-	return strings.ToLower(trimAllPrefix(guess, "a ", "the "))
+	return trimAllPrefix(strings.ToLower(guess), "a ", "the ")
 }
 
 func trimAllPrefix(str string, trim ...string) string {
