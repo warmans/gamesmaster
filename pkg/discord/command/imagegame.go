@@ -562,6 +562,12 @@ func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) 
 		"Guess the posters by adding a message to the attached thread: \n"+
 			"- `guess` e.g. `guess 1 fargo` - submit an answer. \n"+
 			"- `clue` e.g. `clue 1` - get a clue about the panel (only available for the final %d panels). \n\n"+
+			"The bot will respond with: "+
+			"- :x: if you guess incorrectly. \n"+
+			"- :white_check_mark: if you guess correctly. \n"+
+			"- :clock1: if someone has already guessed the item. \n"+
+			"- :man_gesturing_no: if your guess was not allowed. \n"+
+			"- :thumbsdown: if clues are not yet enabled. \n\n"+
 			"You have %s remaining to complete the puzzle.\n%s",
 		imageGameClueThreshold,
 		timeLeft.Truncate(time.Minute).String(),
