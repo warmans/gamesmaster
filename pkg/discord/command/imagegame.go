@@ -517,7 +517,7 @@ func (c *ImageGame) start() error {
 							unguessed++
 						}
 					}
-					if time.Since(cw.StartedAt) >= imageGameDuration && unguessed > 0 {
+					if time.Since(cw.StartedAt) >= imageGameDuration && cw.NumUnsolved() > 0 {
 						triggerCompletion = true
 					}
 					return nil
@@ -535,21 +535,27 @@ func (c *ImageGame) start() error {
 }
 
 func (c *ImageGame) forceCompleteGame(guildID, reason string) error {
-	return c.openImageGameForWriting(guildID, func(cw *imagegame.State) (*imagegame.State, error) {
+	state := imagegame.State{}
+	if err := c.openImageGameForWriting(guildID, func(cw *imagegame.State) (*imagegame.State, error) {
 		for k := range cw.Posters {
 			cw.Posters[k].Guessed = true
 		}
-		if _, err := c.globalSession.ChannelMessageSend(
-			cw.AnswerThreadID,
-			fmt.Sprintf("Game completed in %s!\n%s\n\nScores:\n%s", time.Since(cw.StartedAt), reason, cw.Scores.Render()),
-		); err != nil {
-			return cw, err
-		}
-		if err := c.refreshGameImage(c.globalSession, *cw); err != nil {
-			return cw, err
-		}
+		state = *cw
 		return cw, nil
-	})
+	}); err != nil {
+		return err
+	}
+	if _, err := c.globalSession.ChannelMessageSend(
+		state.AnswerThreadID,
+		fmt.Sprintf("Game completed in %s!\n%s\n\nScores:\n%s", time.Since(state.StartedAt), reason, state.Scores.Render()),
+	); err != nil {
+		return err
+	}
+	if err := c.refreshGameImage(c.globalSession, state); err != nil {
+		return err
+	}
+	return nil
+})
 }
 
 func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) string {
