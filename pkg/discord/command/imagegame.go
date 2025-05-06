@@ -555,7 +555,6 @@ func (c *ImageGame) forceCompleteGame(guildID, reason string) error {
 		return err
 	}
 	return nil
-})
 }
 
 func imageGameDescription(timeLeft time.Duration, requireAlternatingUsers bool) string {
