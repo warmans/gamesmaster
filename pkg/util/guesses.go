@@ -3,11 +3,14 @@ package util
 import (
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
+	"regexp"
 	"strings"
 )
 
+var whitespace = regexp.MustCompile(`\s+`)
+
 func WithoutSpaces(guess string) string {
-	return spaces.ReplaceAllString(guess, "")
+	return whitespace.ReplaceAllString(guess, "")
 }
 
 func GuessRoughlyMatchesAnswer(guess string, answer string) bool {

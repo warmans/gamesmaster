@@ -122,7 +122,7 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 				alreadySolved = true
 				break
 			}
-			if strings.TrimSpace(strings.ToUpper(util.WithoutSpaces(word))) == strings.ToUpper(util.WithoutSpaces(w.Word.Word)) {
+			if strings.ToUpper(util.WithoutSpaces(word)) == strings.ToUpper(w.Word.Word) {
 				correct = true
 				solved := cw.Game.Words[k]
 				solved.Solved = true
