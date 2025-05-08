@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+func WithoutSpaces(guess string) string {
+	return spaces.ReplaceAllString(guess, " ")
+}
+
 func GuessRoughlyMatchesAnswer(guess string, answer string) bool {
 	return strutil.Similarity(SimplifyGuess(guess), SimplifyGuess(answer), metrics.NewHamming()) >= 0.8
 }
