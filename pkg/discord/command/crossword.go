@@ -150,11 +150,16 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 
 			solvedClues, unsolvedClues := c.renderClues(*cw.Game)
 
+			var messageBody string
+			if unsolvedClues.Len() < 2000 {
+				messageBody = unsolvedClues.String()
+			}
+
 			_, err = s.ChannelMessageEditComplex(
 				&discordgo.MessageEdit{
 					Channel: cw.OriginalMessageChannel,
 					ID:      cw.OriginalMessageID,
-					Content: util.ToPtr(unsolvedClues.String()),
+					Content: util.ToPtr(messageBody),
 					Files: []*discordgo.File{
 						{
 							Name:        "crossword.png",
