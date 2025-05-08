@@ -21,6 +21,7 @@ var spaces = regexp.MustCompile(`\s+`)
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
+	var imagesDir string
 	var gameStateDir string
 	var guildID string
 	var gameName string
@@ -39,8 +40,6 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 			if guildID == "" {
 				return fmt.Errorf("-guild-id is required")
 			}
-
-			imagesDir := path.Join(gameStateDir, "images")
 
 			if err := renameImages(imagesDir); err != nil {
 				return fmt.Errorf("failed to rename images: %w", err)
@@ -82,6 +81,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 	}
 
 	flag.StringVarEnv(cmd.Flags(), &gameStateDir, "", "output-dir", "./var/imagegame/game", "")
+	flag.StringVarEnv(cmd.Flags(), &imagesDir, "", "images-dir", "./var/imagegame/game/images", "")
 	flag.StringVarEnv(cmd.Flags(), &guildID, "", "guild-id", "", "")
 	flag.BoolVarEnv(cmd.Flags(), &preview, "", "preview", true, "dump an image of the complete crossword")
 	flag.StringVarEnv(cmd.Flags(), &gameName, "", "name", "", "name to give the game")
