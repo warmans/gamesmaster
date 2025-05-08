@@ -7,7 +7,7 @@ import (
 )
 
 func WithoutSpaces(guess string) string {
-	return spaces.ReplaceAllString(guess, " ")
+	return spaces.ReplaceAllString(guess, "")
 }
 
 func GuessRoughlyMatchesAnswer(guess string, answer string) bool {
