@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/warmans/gamesmaster/pkg/discord"
+	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/gamesmaster/pkg/util"
 	"github.com/warmans/go-crossword"
-	"io"
 	"os"
 	"regexp"
 	"slices"
@@ -24,6 +24,8 @@ type CrosswordState struct {
 	OriginalMessageChannel string
 	AnswerThreadID         string
 	Game                   *crossword.Crossword
+	Scores                 *scores.Tiered
+	Complete               bool
 }
 
 const (
@@ -86,11 +88,22 @@ func (c *Crossword) MessageHandlers() discord.MessageHandlers {
 				}
 			}
 			if m.ChannelID == c.answerThreadID {
+				// is the message an admin command?
+				if m.Author.Username == ".warmans" {
+					adminMatches := adminRegex.FindStringSubmatch(m.Content)
+					if adminMatches != nil || len(adminMatches) == 2 {
+						if err := c.handleAdminAction(s, adminMatches[1], m.GuildID, m.ChannelID, m.ID); err != nil {
+							fmt.Printf("Admin action failed: %s\n", err.Error())
+						}
+						return
+					}
+				}
+
 				matches := answerRegex.FindStringSubmatch(m.Content)
 				if matches == nil || len(matches) != 3 {
 					return
 				}
-				if err := c.handleCheckWordSubmission(s, matches[1], matches[2], m.ChannelID, m.ID); err != nil {
+				if err := c.handleCheckWordSubmission(s, matches[1], matches[2], m.ChannelID, m.ID, m.Author.Username); err != nil {
 					fmt.Println("Failed to check work: ", err.Error())
 					return
 				}
@@ -109,11 +122,10 @@ func (c *Crossword) SubCommands() []*discordgo.ApplicationCommandOption {
 	}
 }
 
-func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID string, word string, channelID string, messageID string) error {
-
+func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID string, word string, channelID string, messageID string, username string) error {
 	alreadySolved := false
 	correct := false
-	err := c.openCrosswordForWriting(func(cw *CrosswordState) *CrosswordState {
+	err := c.openCrosswordForWriting(func(cw *CrosswordState) (*CrosswordState, error) {
 		for k, w := range cw.Game.Words {
 			if w.ClueID() != strings.ToUpper(clueID) {
 				continue
@@ -127,62 +139,39 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 				solved := cw.Game.Words[k]
 				solved.Solved = true
 				cw.Game.Words[k] = solved
+
+				cw.Scores.Add(username)
 				break
 			}
 		}
-		return cw
+		unsolved := 0
+		for _, w := range cw.Game.Words {
+			if !w.Solved {
+				unsolved++
+			}
+		}
+		if unsolved == 0 && !cw.Complete {
+			cw.Complete = true
+			if _, err := s.ChannelMessageSend(
+				cw.AnswerThreadID,
+				fmt.Sprintf("Game completed!\n\nScores:\n%s", cw.Scores.Render()),
+			); err != nil {
+				fmt.Println("Failed to send game completion message: ", err.Error())
+				// don't fail as it'll stop it writing the game complete flag etc.
+				return cw, nil
+			}
+		}
+		return cw, nil
 	})
 	if err != nil {
 		return err
 	}
 
 	if correct {
-		fmt.Println("Correct!")
-		err := c.openCrosswordForReading(func(cw *CrosswordState) error {
-			canvas, err := crossword.RenderPNG(cw.Game, 1200, 1200)
-			if err != nil {
-				return err
-			}
-			buff := &bytes.Buffer{}
-			if err := canvas.EncodePNG(buff); err != nil {
-				return err
-			}
-
-			solvedClues, unsolvedClues := c.renderClues(*cw.Game)
-
-			var messageBody string
-			if unsolvedClues.Len() < 2000 {
-				messageBody = unsolvedClues.String()
-			}
-
-			_, err = s.ChannelMessageEditComplex(
-				&discordgo.MessageEdit{
-					Channel: cw.OriginalMessageChannel,
-					ID:      cw.OriginalMessageID,
-					Content: util.ToPtr(messageBody),
-					Files: []*discordgo.File{
-						{
-							Name:        "crossword.png",
-							ContentType: "images/png",
-							Reader:      buff,
-						},
-						{
-							Name:        "clues.txt",
-							ContentType: "text/plain",
-							Reader:      io.MultiReader(unsolvedClues, solvedClues),
-						},
-					},
-					Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
-				},
-			)
-			if err != nil {
-				return err
-			}
-			return s.MessageReactionAdd(channelID, messageID, "✅")
-		})
-		if err != nil {
+		if err := s.MessageReactionAdd(channelID, messageID, "✅"); err != nil {
 			return err
 		}
+		return c.refreshCrossword(s)
 	} else {
 		if alreadySolved {
 			if err := s.MessageReactionAdd(channelID, messageID, "🕣"); err != nil {
@@ -195,6 +184,27 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 		}
 	}
 	return nil
+}
+
+func (c *Crossword) refreshCrossword(s *discordgo.Session) error {
+	return c.openCrosswordForReading(func(cw *CrosswordState) error {
+
+		files, content, err := c.renderBoard(cw)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.ChannelMessageEditComplex(
+			&discordgo.MessageEdit{
+				Channel:     cw.OriginalMessageChannel,
+				ID:          cw.OriginalMessageID,
+				Content:     util.ToPtr(content),
+				Files:       files,
+				Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
+			},
+		)
+		return err
+	})
 }
 
 func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -214,41 +224,17 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
 				Content: "Game already started",
-				//todo: how to add link to existing thread.
 			},
 		})
 	}
 
-	canvas, err := crossword.RenderPNG(cw.Game, 1024, 1024)
+	files, content, err := c.renderBoard(&cw)
 	if err != nil {
 		return err
 	}
-	buff := &bytes.Buffer{}
-	if err := canvas.EncodePNG(buff); err != nil {
-		return err
-	}
-
-	solvedClues, unsolvedClues := c.renderClues(*cw.Game)
-
-	var messageBody string
-	if unsolvedClues.Len() < 2000 {
-		messageBody = unsolvedClues.String()
-	}
-
 	initialMessage, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: messageBody,
-		Files: []*discordgo.File{
-			{
-				Name:        "crossword.png",
-				ContentType: "images/png",
-				Reader:      buff,
-			},
-			{
-				Name:        "clues.txt",
-				ContentType: "text/plain",
-				Reader:      io.MultiReader(unsolvedClues, solvedClues),
-			},
-		},
+		Content: content,
+		Files:   files,
 	})
 	if err != nil {
 		fmt.Printf("Failed to start game: %s\n", err.Error())
@@ -260,9 +246,9 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
-	if err := c.openCrosswordForWriting(func(cw *CrosswordState) *CrosswordState {
+	if err := c.openCrosswordForWriting(func(cw *CrosswordState) (*CrosswordState, error) {
 		cw.AnswerThreadID = thread.ID
 		c.answerThreadID = thread.ID
 
@@ -270,7 +256,7 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 		cw.OriginalMessageChannel = initialMessage.ChannelID
 
 		fmt.Printf("starting game. ThreadID: %s OriginalMessageID: %s OriginalMessageChannel: %s", cw.AnswerThreadID, cw.OriginalMessageID, cw.OriginalMessageChannel)
-		return cw
+		return cw, nil
 	}); err != nil {
 		fmt.Printf("Failed to store answer thread ID: %s\n", err.Error())
 		return err
@@ -283,6 +269,38 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 			Content: "Starting Game...",
 		},
 	})
+}
+
+func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, error) {
+	canvas, err := crossword.RenderPNG(cw.Game, 1600, 800, crossword.WithClues(true))
+	if err != nil {
+		return nil, "", err
+	}
+	board := &bytes.Buffer{}
+	if err := canvas.EncodePNG(board); err != nil {
+		return nil, "", err
+	}
+
+	_, unsolvedClues := c.renderClues(*cw.Game)
+
+	var messageBody string
+	if unsolvedClues.Len() < 2000 {
+		messageBody = unsolvedClues.String()
+	}
+
+	return []*discordgo.File{
+		{
+			Name:        "crossword.png",
+			ContentType: "images/png",
+			Reader:      board,
+		},
+		//{
+		//	Name:        "clues.txt",
+		//	ContentType: "text/plain",
+		//	Reader:      io.MultiReader(unsolvedClues, solvedClues),
+		//},
+	}, messageBody, nil
+
 }
 
 func (c *Crossword) renderClues(cw crossword.Crossword) (*bytes.Buffer, *bytes.Buffer) {
@@ -307,23 +325,23 @@ func (c *Crossword) renderClues(cw crossword.Crossword) (*bytes.Buffer, *bytes.B
 
 	unsolvedClues := &bytes.Buffer{}
 	if len(unsolvedDown) > 0 {
-		fmt.Fprintf(unsolvedClues, "**DOWN**")
+		_, _ = fmt.Fprintf(unsolvedClues, "**DOWN**")
 		for _, w := range unsolvedDown {
-			fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+			_, _ = fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
 		}
 	}
 	if len(unsolvedAcross) > 0 {
-		fmt.Fprintf(unsolvedClues, "\n\n**ACROSS**")
+		_, _ = fmt.Fprintf(unsolvedClues, "\n\n**ACROSS**")
 		for _, w := range unsolvedAcross {
-			fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+			_, _ = fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
 		}
 	}
 
 	solvedClues := &bytes.Buffer{}
 	if len(solved) > 0 {
-		fmt.Fprintf(solvedClues, "\n\n**SOLVED**")
+		_, _ = fmt.Fprintf(solvedClues, "\n\n**SOLVED**")
 		for _, w := range solved {
-			fmt.Fprintf(solvedClues, "\n `[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
+			_, _ = fmt.Fprintf(solvedClues, "\n `[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
 		}
 	}
 
@@ -348,7 +366,58 @@ func (c *Crossword) openCrosswordForReading(cb func(cw *CrosswordState) error) e
 	return cb(&cw)
 }
 
-func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) *CrosswordState) error {
+func (c *Crossword) handleAdminAction(s *discordgo.Session, action string, guildID string, channelID string, messageID string) error {
+	switch action {
+	case "refresh":
+		if err := c.refreshCrossword(s); err != nil {
+			return err
+		}
+		return s.MessageReactionAdd(channelID, messageID, "👀")
+	case "complete":
+		if err := c.openCrosswordForWriting(func(cw *CrosswordState) (*CrosswordState, error) {
+			//leave one unsolved
+			oneLeft := false
+			for k, v := range cw.Game.Words {
+				if v.Solved == false && !oneLeft {
+					oneLeft = true
+					continue
+				}
+				solved := cw.Game.Words[k]
+				solved.Solved = true
+				cw.Game.Words[k] = solved
+			}
+			return cw, nil
+		}); err != nil {
+			return err
+		}
+		if err := c.refreshCrossword(s); err != nil {
+			return err
+		}
+		return s.MessageReactionAdd(channelID, messageID, "👀")
+	case "reset":
+		if err := c.openCrosswordForWriting(func(cw *CrosswordState) (*CrosswordState, error) {
+			for k := range cw.Game.Words {
+				solved := cw.Game.Words[k]
+				solved.Solved = false
+				cw.Game.Words[k] = solved
+				cw.Scores.Scores = make(map[string]*scores.Score)
+				cw.Scores.LastUser = ""
+				cw.Complete = false
+			}
+			return cw, nil
+		}); err != nil {
+			return err
+		}
+		if err := c.refreshCrossword(s); err != nil {
+			return err
+		}
+		return s.MessageReactionAdd(channelID, messageID, "👀")
+	default:
+		return s.MessageReactionAdd(channelID, messageID, "🤷")
+	}
+}
+
+func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) (*CrosswordState, error)) error {
 	c.gameLock.Lock()
 	defer c.gameLock.Unlock()
 
@@ -363,7 +432,10 @@ func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) *Crosswo
 		return err
 	}
 
-	cw = cb(cw)
+	cw, err = cb(cw)
+	if err != nil {
+		return err
+	}
 	if cw == nil {
 		return nil
 	}
