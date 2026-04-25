@@ -3,17 +3,18 @@ package crossword
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
+	"path"
+
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/discord/command"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/go-crossword"
-	"log/slog"
-	"os"
-	"path"
 )
 
-const GridSize = 30
+const GridSize = 50
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
