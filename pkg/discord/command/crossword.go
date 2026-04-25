@@ -274,7 +274,7 @@ func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, 
 	canvas, err := crossword.RenderPNG(
 		cw.Game,
 		2000,
-		1200,
+		1000,
 		crossword.WithClues(true),
 		crossword.WithClueFontSize(9),
 	)
