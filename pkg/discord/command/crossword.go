@@ -2,12 +2,10 @@ package command
 
 import (
 	"bytes"
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 
@@ -288,58 +286,8 @@ func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, 
 			ContentType: "images/png",
 			Reader:      board,
 		},
-		//{
-		//	Name:        "clues.txt",
-		//	ContentType: "text/plain",
-		//	Reader:      io.MultiReader(unsolvedClues, solvedClues),
-		//},
 	}, "", nil
 
-}
-
-func (c *Crossword) renderClues(cw crossword.Crossword) (*bytes.Buffer, *bytes.Buffer) {
-	slices.SortFunc(cw.Words, func(a, b crossword.Placement) int {
-		return cmp.Compare(a.ID, b.ID)
-	})
-
-	solved := []crossword.Placement{}
-	unsolvedDown := []crossword.Placement{}
-	unsolvedAcross := []crossword.Placement{}
-	for _, w := range cw.Words {
-		if !w.Solved {
-			if w.Vertical {
-				unsolvedDown = append(unsolvedDown, w)
-			} else {
-				unsolvedAcross = append(unsolvedAcross, w)
-			}
-		} else {
-			solved = append(solved, w)
-		}
-	}
-
-	unsolvedClues := &bytes.Buffer{}
-	if len(unsolvedDown) > 0 {
-		_, _ = fmt.Fprintf(unsolvedClues, "**DOWN**")
-		for _, w := range unsolvedDown {
-			_, _ = fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
-		}
-	}
-	if len(unsolvedAcross) > 0 {
-		_, _ = fmt.Fprintf(unsolvedClues, "\n\n**ACROSS**")
-		for _, w := range unsolvedAcross {
-			_, _ = fmt.Fprintf(unsolvedClues, "\n`[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
-		}
-	}
-
-	solvedClues := &bytes.Buffer{}
-	if len(solved) > 0 {
-		_, _ = fmt.Fprintf(solvedClues, "\n\n**SOLVED**")
-		for _, w := range solved {
-			_, _ = fmt.Fprintf(solvedClues, "\n `[%s | %d letters]` %s", w.ClueID(), len(w.Word.Word), w.Word.Clue)
-		}
-	}
-
-	return solvedClues, unsolvedClues
 }
 
 func (c *Crossword) openCrosswordForReading(cb func(cw *CrosswordState) error) error {
