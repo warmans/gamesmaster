@@ -5,16 +5,17 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"github.com/bwmarrin/discordgo"
-	"github.com/warmans/gamesmaster/pkg/discord"
-	"github.com/warmans/gamesmaster/pkg/scores"
-	"github.com/warmans/gamesmaster/pkg/util"
-	"github.com/warmans/go-crossword"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/warmans/gamesmaster/pkg/discord"
+	"github.com/warmans/gamesmaster/pkg/scores"
+	"github.com/warmans/gamesmaster/pkg/util"
+	"github.com/warmans/go-crossword"
 )
 
 var answerRegex = regexp.MustCompile(`([A-Za-z][0-9]+)\s(.+)`)
@@ -134,7 +135,7 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 				alreadySolved = true
 				break
 			}
-			if strings.ToUpper(util.WithoutSpaces(word)) == strings.ToUpper(w.Word.Word) {
+			if strings.EqualFold(util.WithoutSpaces(word), w.Word.Word) {
 				correct = true
 				solved := cw.Game.Words[k]
 				solved.Solved = true
@@ -378,7 +379,7 @@ func (c *Crossword) handleAdminAction(s *discordgo.Session, action string, guild
 			//leave one unsolved
 			oneLeft := false
 			for k, v := range cw.Game.Words {
-				if v.Solved == false && !oneLeft {
+				if !v.Solved && !oneLeft {
 					oneLeft = true
 					continue
 				}
