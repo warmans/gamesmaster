@@ -282,13 +282,6 @@ func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, 
 		return nil, "", err
 	}
 
-	_, unsolvedClues := c.renderClues(*cw.Game)
-
-	var messageBody string
-	if unsolvedClues.Len() < 2000 {
-		messageBody = unsolvedClues.String()
-	}
-
 	return []*discordgo.File{
 		{
 			Name:        "crossword.png",
@@ -300,7 +293,7 @@ func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, 
 		//	ContentType: "text/plain",
 		//	Reader:      io.MultiReader(unsolvedClues, solvedClues),
 		//},
-	}, messageBody, nil
+	}, "", nil
 
 }
 
