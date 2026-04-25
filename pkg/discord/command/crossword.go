@@ -271,7 +271,13 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 }
 
 func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, error) {
-	canvas, err := crossword.RenderPNG(cw.Game, 1600, 800, crossword.WithClues(true))
+	canvas, err := crossword.RenderPNG(
+		cw.Game,
+		1600,
+		1600,
+		crossword.WithClues(true),
+		crossword.WithClueFontSize(9),
+	)
 	if err != nil {
 		return nil, "", err
 	}
