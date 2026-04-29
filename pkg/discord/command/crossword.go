@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/fogleman/gg"
 	"github.com/warmans/gamesmaster/pkg/discord"
 	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/gamesmaster/pkg/util"
@@ -271,12 +272,8 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 }
 
 func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, error) {
-	canvas, err := crossword.RenderPNG(
+	canvas, err := RenderCrossword(
 		cw.Game,
-		1600,
-		800,
-		crossword.WithClues(true),
-		crossword.WithClueFontSize(9),
 	)
 	if err != nil {
 		return nil, "", err
@@ -398,4 +395,21 @@ func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) (*Crossw
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	return enc.Encode(cw)
+}
+
+func RenderCrossword(c *crossword.Crossword, extraOpts ...crossword.RenderOption) (*gg.Context, error) {
+	return crossword.RenderPNG(
+		c,
+		1800,
+		900,
+		append(
+			[]crossword.RenderOption{
+				crossword.WithClues(true),
+				crossword.WithClueFontSize(10),
+				crossword.WithWordFontSize(12),
+				crossword.WithBorder(50),
+			},
+			extraOpts...,
+		)...,
+	)
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/warmans/go-crossword"
 )
 
-const GridSize = 50
+const GridSize = 35
 
 func NewInitCommand(logger *slog.Logger) *cobra.Command {
 
@@ -51,7 +51,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 				crossword.WithRevealFirstLetterOfEachWord(false),
 				crossword.WithAllAttempts(true),
 			)
-			canvas, err := crossword.RenderPNG(cw, 1200, 1200, crossword.WithAllSolved(false))
+			canvas, err := command.RenderCrossword(cw, crossword.WithAllSolved(true))
 			if err != nil {
 				return err
 			}
