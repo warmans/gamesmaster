@@ -14,12 +14,13 @@ import (
 	"github.com/warmans/gamesmaster/pkg/discord"
 	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/gamesmaster/pkg/util"
-	"github.com/warmans/go-crossword"
+	"github.com/warmans/go-crossword/v2"
 )
 
-var answerRegex = regexp.MustCompile(`([A-Za-z][0-9]+)\s(.+)`)
+var answerRegex = regexp.MustCompile(`([AD][0-9]+)\s(.+)`)
 
 type CrosswordState struct {
+	ThreadTitle            string
 	OriginalMessageID      string
 	OriginalMessageChannel string
 	AnswerThreadID         string
@@ -35,6 +36,8 @@ const (
 const (
 	crosswordCmdStart string = "start"
 )
+
+const threadText = "Submit an answer in the format `[clue ID] [answer]` e.g. `A3 Foo`"
 
 func NewCrosswordCommand() *Crossword {
 	return &Crossword{}
@@ -189,7 +192,7 @@ func (c *Crossword) handleCheckWordSubmission(s *discordgo.Session, clueID strin
 func (c *Crossword) refreshCrossword(s *discordgo.Session) error {
 	return c.openCrosswordForReading(func(cw *CrosswordState) error {
 
-		files, content, err := c.renderBoard(cw)
+		files, err := c.renderBoard(cw)
 		if err != nil {
 			return err
 		}
@@ -198,7 +201,7 @@ func (c *Crossword) refreshCrossword(s *discordgo.Session) error {
 			&discordgo.MessageEdit{
 				Channel:     cw.OriginalMessageChannel,
 				ID:          cw.OriginalMessageID,
-				Content:     util.ToPtr(content),
+				Content:     util.ToPtr(threadText),
 				Files:       files,
 				Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
 			},
@@ -228,12 +231,12 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 		})
 	}
 
-	files, content, err := c.renderBoard(&cw)
+	files, err := c.renderBoard(&cw)
 	if err != nil {
 		return err
 	}
 	initialMessage, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: content,
+		Content: threadText,
 		Files:   files,
 	})
 	if err != nil {
@@ -242,7 +245,7 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 	}
 
 	thread, err := s.MessageThreadStartComplex(initialMessage.ChannelID, initialMessage.ID, &discordgo.ThreadStart{
-		Name: "Answers Thread",
+		Name: util.IfEmpty(cw.ThreadTitle, "Crossword Answers"),
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
 	if err != nil {
@@ -271,16 +274,16 @@ func (c *Crossword) startCrossword(s *discordgo.Session, i *discordgo.Interactio
 	})
 }
 
-func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, error) {
+func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, error) {
 	canvas, err := RenderCrossword(
 		cw.Game,
 	)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	board := &bytes.Buffer{}
 	if err := canvas.EncodePNG(board); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	return []*discordgo.File{
@@ -289,7 +292,7 @@ func (c *Crossword) renderBoard(cw *CrosswordState) ([]*discordgo.File, string, 
 			ContentType: "images/png",
 			Reader:      board,
 		},
-	}, "", nil
+	}, nil
 
 }
 
@@ -400,14 +403,13 @@ func (c *Crossword) openCrosswordForWriting(cb func(cw *CrosswordState) (*Crossw
 func RenderCrossword(c *crossword.Crossword, extraOpts ...crossword.RenderOption) (*gg.Context, error) {
 	return crossword.RenderPNG(
 		c,
-		1800,
-		900,
+		1500,
+		1500,
 		append(
 			[]crossword.RenderOption{
 				crossword.WithClues(true),
-				crossword.WithClueFontSize(10),
-				crossword.WithWordFontSize(12),
-				crossword.WithBorder(50),
+				crossword.WithBorder(25),
+				crossword.WithClueRatio(0.4),
 			},
 			extraOpts...,
 		)...,

@@ -105,3 +105,10 @@ func RunesToStrings(runes []rune) []string {
 	}
 	return str
 }
+
+func IfEmpty(val string, defaultVal string) string {
+	if val == "" {
+		return defaultVal
+	}
+	return val
+}

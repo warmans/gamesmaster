@@ -9,7 +9,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"github.com/warmans/gamesmaster/pkg/scores"
 	"github.com/warmans/gamesmaster/pkg/util"
-	"github.com/warmans/go-crossword"
+	"github.com/warmans/go-crossword/v2"
 	"log/slog"
 	"math/rand"
 	"os"

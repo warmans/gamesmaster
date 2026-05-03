@@ -11,7 +11,7 @@ import (
 	"github.com/warmans/gamesmaster/pkg/discord/command"
 	"github.com/warmans/gamesmaster/pkg/flag"
 	"github.com/warmans/gamesmaster/pkg/scores"
-	"github.com/warmans/go-crossword"
+	"github.com/warmans/go-crossword/v2"
 )
 
 const GridSize = 35
@@ -66,7 +66,7 @@ func NewInitCommand(logger *slog.Logger) *cobra.Command {
 			enc.SetIndent("", "    ")
 
 			if preview {
-				if err := canvas.SavePNG("preview.png"); err != nil {
+				if err := canvas.SavePNG("crossword.png"); err != nil {
 					return err
 				}
 			}

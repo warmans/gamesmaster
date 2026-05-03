@@ -7,7 +7,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/warmans/gamesmaster/pkg/filmgame"
 	"github.com/warmans/gamesmaster/pkg/scores"
-	"github.com/warmans/go-crossword"
+	"github.com/warmans/go-crossword/v2"
 	"golang.org/x/image/font/gofont/goregular"
 	"image"
 	"image/color"

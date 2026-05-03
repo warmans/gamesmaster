@@ -5,7 +5,7 @@ import (
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/spf13/cobra"
 	"github.com/warmans/gamesmaster/pkg/flag"
-	"github.com/warmans/go-crossword"
+	"github.com/warmans/go-crossword/v2"
 	"os"
 	"strings"
 
